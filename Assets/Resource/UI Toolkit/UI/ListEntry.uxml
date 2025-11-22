@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/ListEntry.uss?fileID=7433441132597879392&amp;guid=2576553c3ef854e0b8dcd55f0570f890&amp;type=3#ListEntry" />
+    <ui:VisualElement name="list-entry" focusable="true" style="background-image: url(&quot;project://database/Assets/UI/backUI/ListBackUI.png?fileID=2800000&amp;guid=fb324f7feae654e8199d095b44fb4218&amp;type=3#ListBackUI&quot;); transition-property: opacity; transition-duration: 1s;">
+        <ui:Label text="Label" display-tooltip-when-elided="true" name="character-name" />
+    </ui:VisualElement>
+</ui:UXML>
