@@ -18,7 +18,7 @@ public class TileCustomWithEvent : TileCustom
     public int GCost { get; set; }
     public int HCost { get; set; }
     public int FCost => GCost + HCost;
-    public Tile Parent { get; set; }
+    public TileCustomWithEvent Parent { get; set; }
     
     private SpriteRenderer spriteRenderer;
     

@@ -3,19 +3,47 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
+[System.Serializable]
+public class UnitStats
+{
+    [Header("기본 스탯")]
+    public int currentHealth;
+    public int maxHealth;
+    
+    [Header("공격 관련")]
+    public int baseAttack;          // 기본 공격력
+    public int attackVariation = 2; // 데미지 랜덤성 ±2
+    public float attackSpeed = 2.5f; // 공격 속도 (초)
+    
+    [Header("방어 관련")]
+    public int physicalDefense;     // 물리 방어
+    public int magicalDefense;      // 마법 방어
+    public int evasion;             // 회피율 (0-100)
+    
+    [Header("이동 관련")]
+    public int movement;            // 이동력
+    public int initiative;          // 선공권 (높을수록 먼저)
+    
+    [Header("특수 스탯")]
+    public int morale = 100;        // 사기 (0-100)
+    public int experience = 0;      // 경험치
+    public int level = 1;           // 레벨
+}
 public class Unit : MonoBehaviour
 {
     [SerializeField] private UnitDataSO unitData;
-    
+    [SerializeField] public UnitStats stats;
     [SerializeField] private Tilemap tilemap;
     public string UnitName => unitData.unitName;
-    public int CurrentHealth { get; private set; }
+    public int CurrentHealth { get; private set; }  //체력
+    public int CurrentStamina { get; private set; } //지구력: 행동 후 감소, 휴식 시 회복
+    public int CurrentMorale { get; private set; }  //사기: 높으면 공격적, 낮으면 방어적
     public int MaxHealth => unitData.maxHealth;
     public int AttackPower => unitData.attack;
     public int MovementRange => unitData.movementRange;
     public bool IsAlive => CurrentHealth > 0;
     
-    public Tile CurrentTile { get; private set; }
+    public TileCustomWithEvent CurrentTile { get; private set; }
     
     private bool hasMovedThisTurn = false;
     private bool hasAttackedThisTurn = false;
@@ -27,9 +55,15 @@ public class Unit : MonoBehaviour
     {
         CurrentHealth = MaxHealth;
         /////////////////////ToDo Test, Delete Later//////////////////
+        /// 로직 테스트용 목적으로 구현하지만 나중에는 구조적으로 분리하자.
         Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
-        TileCustomWithEvent curTile = tilemap.GetTile<TileCustomWithEvent>(cellPosition);
-        //Initialize(curTile);
+        TileBase curTile = tilemap.GetTile<TileBase>(cellPosition);
+        if (curTile is TileCustomWithEvent)
+        {
+            Debug.Log("TileCustomWithEvent found");
+            TileCustomWithEvent tileWithEvent = curTile as TileCustomWithEvent;
+            Initialize(tileWithEvent);
+        }
         Debug.Log(cellPosition);
         
         // 셀의 중심 월드 좌표를 가져옴
@@ -45,11 +79,13 @@ public class Unit : MonoBehaviour
         /// ToDo 주변 타일 검사해서 위치 이동 및 적 존재 유무 확인
     }
     
-    public void Initialize(Tile startTile)
+    public void Initialize(TileCustomWithEvent startTile)
     {
         CurrentTile = startTile;
         startTile.SetOccupied(this);
-        transform.position = startTile.transform.position;
+        Debug.Log("Tile Type is: " + CurrentTile.TileType);
+        ;
+        //transform.position = startTile.transform.position;
     }
     
     public void ResetTurnActions()
@@ -61,11 +97,11 @@ public class Unit : MonoBehaviour
     public bool CanMove() => !hasMovedThisTurn && IsAlive;
     public bool CanAttack() => !hasAttackedThisTurn && IsAlive;
     
-    public List<Tile> GetMovableTiles()
+    public List<TileCustomWithEvent> GetMovableTiles()
     {
-        List<Tile> movableTiles = new List<Tile>();
-        Queue<Tile> queue = new Queue<Tile>();
-        HashSet<Tile> visited = new HashSet<Tile>();
+        List<TileCustomWithEvent> movableTiles = new List<TileCustomWithEvent>();
+        Queue<TileCustomWithEvent> queue = new Queue<TileCustomWithEvent>();
+        HashSet<TileCustomWithEvent> visited = new HashSet<TileCustomWithEvent>();
         
         queue.Enqueue(CurrentTile);
         visited.Add(CurrentTile);
@@ -73,9 +109,9 @@ public class Unit : MonoBehaviour
         
         while (queue.Count > 0)
         {
-            Tile current = queue.Dequeue();
+            TileCustomWithEvent current = queue.Dequeue();
             
-            foreach (Tile neighbor in GridManager.Instance.GetNeighbors(current))
+            foreach (TileCustomWithEvent neighbor in GridManager.Instance.GetNeighbors(current))
             {
                 if (visited.Contains(neighbor)) continue;
                 
@@ -99,19 +135,19 @@ public class Unit : MonoBehaviour
         return movableTiles;
     }
     
-    public IEnumerator MoveTo(Tile targetTile)
+    public IEnumerator MoveTo(TileCustomWithEvent targetTile)
     {
         if (!CanMove()) yield break;
         
-        List<Tile> path = Pathfinding.Instance.FindPath(CurrentTile, targetTile);
+        List<TileCustomWithEvent> path = Pathfinding.Instance.FindPath(CurrentTile, targetTile);
         
         if (path != null)
         {
             CurrentTile.ClearOccupied();
             
-            foreach (Tile tile in path)
+            foreach (TileCustomWithEvent tile in path)
             {
-                transform.position = tile.transform.position;
+                //transform.position = tile.transform.position;
                 yield return new WaitForSeconds(0.2f);
             }
             
@@ -163,8 +199,8 @@ public class Unit : MonoBehaviour
             else
             {
                 // 이동
-                List<Tile> movableTiles = GetMovableTiles();
-                Tile closestTile = GetClosestTileToTarget(movableTiles, target.CurrentTile);
+                List<TileCustomWithEvent> movableTiles = GetMovableTiles();
+                TileCustomWithEvent closestTile = GetClosestTileToTarget(movableTiles, target.CurrentTile);
                 
                 if (closestTile != null)
                 {
@@ -189,7 +225,7 @@ public class Unit : MonoBehaviour
         return distance == 1; // 인접 공격만
     }
     
-    Tile GetClosestTileToTarget(List<Tile> tiles, Tile targetTile)
+    TileCustomWithEvent GetClosestTileToTarget(List<TileCustomWithEvent> tiles, TileCustomWithEvent targetTile)
     {
         // 구현 생략
         return null;

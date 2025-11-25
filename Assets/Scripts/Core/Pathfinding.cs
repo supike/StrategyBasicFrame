@@ -11,16 +11,16 @@ public class Pathfinding : MonoBehaviour
         gridManager = GridManager.Instance;
     }
     
-    public List<Tile> FindPath(Tile startTile, Tile targetTile)
+    public List<TileCustomWithEvent> FindPath(TileCustomWithEvent startTile, TileCustomWithEvent targetTile)
     {
-        List<Tile> openSet = new List<Tile>();
-        HashSet<Tile> closedSet = new HashSet<Tile>();
+        List<TileCustomWithEvent> openSet = new List<TileCustomWithEvent>();
+        HashSet<TileCustomWithEvent> closedSet = new HashSet<TileCustomWithEvent>();
         
         openSet.Add(startTile);
         
         while (openSet.Count > 0)
         {
-            Tile currentTile = openSet[0];
+            TileCustomWithEvent currentTile = openSet[0];
             
             // 가장 낮은 FCost를 가진 타일 찾기
             for (int i = 1; i < openSet.Count; i++)
@@ -42,7 +42,7 @@ public class Pathfinding : MonoBehaviour
             }
             
             // 이웃 타일 탐색
-            foreach (Tile neighbor in gridManager.GetNeighbors(currentTile))
+            foreach (TileCustomWithEvent neighbor in gridManager.GetNeighbors(currentTile))
             {
                 if (!neighbor.IsWalkable || closedSet.Contains(neighbor))
                     continue;
@@ -64,10 +64,10 @@ public class Pathfinding : MonoBehaviour
         return null; // 경로 없음
     }
     
-    List<Tile> RetracePath(Tile startTile, Tile endTile)
+    List<TileCustomWithEvent> RetracePath(TileCustomWithEvent startTile, TileCustomWithEvent endTile)
     {
-        List<Tile> path = new List<Tile>();
-        Tile currentTile = endTile;
+        List<TileCustomWithEvent> path = new List<TileCustomWithEvent>();
+        TileCustomWithEvent currentTile = endTile;
         
         while (currentTile != startTile)
         {
@@ -79,7 +79,7 @@ public class Pathfinding : MonoBehaviour
         return path;
     }
     
-    int GetDistance(Tile tileA, Tile tileB)
+    int GetDistance(TileCustomWithEvent tileA, TileCustomWithEvent tileB)
     {
         int distX = Mathf.Abs(tileA.X - tileB.X);
         int distY = Mathf.Abs(tileA.Y - tileB.Y);

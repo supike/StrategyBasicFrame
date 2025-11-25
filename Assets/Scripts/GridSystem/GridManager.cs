@@ -11,8 +11,8 @@ public class GridManager: MonoBehaviour
     [SerializeField] private float cellSize = 1f;
     [SerializeField] private GameObject tilePrefab;
     
-    private Tile[,] grid;
-    private Dictionary<Vector2Int, Tile> tileDict;
+    private TileCustomWithEvent[,] grid;
+    private Dictionary<Vector2Int, TileCustomWithEvent> tileDict;
     
     void Start()
     {
@@ -21,8 +21,8 @@ public class GridManager: MonoBehaviour
     
     void GenerateGrid()
     {
-        grid = new Tile[width, height];
-        tileDict = new Dictionary<Vector2Int, Tile>();
+        grid = new TileCustomWithEvent[width, height];
+        tileDict = new Dictionary<Vector2Int, TileCustomWithEvent>();
         
         for (int x = 0; x < width; x++)
         {
@@ -31,7 +31,7 @@ public class GridManager: MonoBehaviour
                 Vector3 worldPos = new Vector3(x * cellSize, y * cellSize, 0);
                 GameObject tileObj = Instantiate(tilePrefab, worldPos, Quaternion.identity, transform);
                 
-                Tile tile = tileObj.GetComponent<Tile>();
+                TileCustomWithEvent tile = tileObj.GetComponent<TileCustomWithEvent>();
                 tile.Initialize(x, y, true); // x, y, isWalkable
                 
                 grid[x, y] = tile;
@@ -40,18 +40,18 @@ public class GridManager: MonoBehaviour
         }
     }
     
-    public Tile GetTile(int x, int y)
+    public TileCustomWithEvent GetTile(int x, int y)
     {
         if (x >= 0 && x < width && y >= 0 && y < height)
             return grid[x, y];
         return null;
     }
     
-    public Tile GetTile(Vector2Int pos) => GetTile(pos.x, pos.y);
+    public TileCustomWithEvent GetTile(Vector2Int pos) => GetTile(pos.x, pos.y);
     
-    public List<Tile> GetNeighbors(Tile tile)
+    public List<TileCustomWithEvent> GetNeighbors(TileCustomWithEvent tile)
     {
-        List<Tile> neighbors = new List<Tile>();
+        List<TileCustomWithEvent> neighbors = new List<TileCustomWithEvent>();
         Vector2Int[] directions = {
             new Vector2Int(1, 0), new Vector2Int(-1, 0),
             new Vector2Int(0, 1), new Vector2Int(0, -1)
@@ -59,7 +59,7 @@ public class GridManager: MonoBehaviour
         
         foreach (var dir in directions)
         {
-            Tile neighbor = GetTile(tile.GridPosition + dir);
+            TileCustomWithEvent neighbor = GetTile(tile.GridPosition + dir);
             if (neighbor != null && neighbor.IsWalkable)
                 neighbors.Add(neighbor);
         }
