@@ -27,7 +27,7 @@ public class TileCustomWithEvent : TileCustom
         X = x;
         Y = y;
         IsWalkable = walkable;
-        //spriteRenderer = GetComponent<SpriteRenderer>();      // TODO TileBase에는 GetComponent가 없음
+        //spriteRenderer = GetComponent<SpriteRenderer>();      // TODO TileBase에는 SpriteRenderer가 없음
     }
     
     public void SetOccupied(Unit unit)

@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+
 namespace Combat
 {
 public class CombatLogUI : MonoBehaviour

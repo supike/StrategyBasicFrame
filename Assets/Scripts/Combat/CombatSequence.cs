@@ -13,7 +13,8 @@ public class CombatSequence : MonoBehaviour
     {
         actionQueue.Enqueue(action);
         
-        if (!isExecuting)
+        // if (!isExecuting)
+        if (true)
         {
             StartCoroutine(ExecuteCombatSequence());
         }
@@ -37,91 +38,176 @@ public class CombatSequence : MonoBehaviour
     {
         Unit attacker = action.attacker;
         Unit defender = action.defender;
-        
-        // 1. 공격 애니메이션 시작
-        attacker.PlayAnimation("Attack");
-        CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+
+        // 근거리 공격 범위 확인 및 이동
+        if (!IsAdjacent(attacker, defender))
         {
-            eventType = CombatEventType.AttackStarted,
-            attacker = attacker,
-            defender = defender
-        });
-        
-        yield return new WaitForSeconds(0.5f);
-        
-        // 2. 회피 판정
-        if (Random.value < defender.unitData.dodgeChance)
+            Debug.Log($"{attacker.name} is not adjacent to {defender.name}. Moving closer...");
+            
+            // 방어자에게 가장 가까운 인접 타일 찾기
+            TileCustomWithEvent targetTile = FindClosestAdjacentTile(attacker, defender);
+            
+            if (targetTile != null && attacker.CanMove())
+            {
+                // 이동 애니메이션 실행
+                yield return StartCoroutine(attacker.MoveTo(targetTile));
+                yield return new WaitForSeconds(0.3f);
+            }
+            else
+            {
+                Debug.LogWarning($"{attacker.name} cannot move to attack {defender.name}!");
+                yield break; // 이동 불가능하면 공격 취소
+            }
+        }
+
+        bool endCombat = false;
+        while (!endCombat)
         {
+            // 공격 준비 쿨 타임을 기다림`
+            yield return attacker.PrepareForAttack();
+        
+            DamagePopUpGenerator.Instance.CreateDamagePopUp(attacker.transform.position, "Attack!", DamageType.True);
+            // 1. 공격 애니메이션 시작
+            attacker.PlayAnimation("Attack");
             CombatEventSystem.Instance.TriggerEvent(new CombatEvent
             {
-                eventType = CombatEventType.AttackDodged,
+                eventType = CombatEventType.AttackStarted,
+                attacker = attacker,
+                defender = defender
+            });
+        
+            yield return new WaitForSeconds(0.5f);
+        
+            // 2. 회피 판정
+            if (Random.value < defender.unitData.dodgeChance)
+            {
+                CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+                {
+                    eventType = CombatEventType.AttackDodged,
+                    attacker = attacker,
+                    defender = defender,
+                    message = $"{defender.name} dodged the attack!"
+                });
+                defender.Dodge();
+                yield return new WaitForSeconds(0.5f);
+                continue; // 다음 공격으로 넘어감
+            }
+        
+            // 3. 데미지 계산
+            int damage = DamageCalculator.CalculateDamage(
+                attacker, 
+                defender, 
+                DamageType.Physical
+            );
+        
+            // 4. 데미지 적용
+            defender.TakeDamage(damage);
+        
+            // 5. 데미지 이벤트 발생
+            CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+            {
+                eventType = CombatEventType.DamageDealt,
                 attacker = attacker,
                 defender = defender,
-                message = $"{defender.name} dodged the attack!"
+                damage = damage,
+                message = $"{attacker.name} dealt {damage} damage to {defender.name}!"
             });
+        
+            // 6. 피격 애니메이션
+            defender.PlayAnimation("Hit");
+        
+            yield return new WaitForSeconds(0.3f);
+            // 사망 확인, 전투 종료 판정
+            endCombat = defender.CurrentHealth <= 0;
             
-            yield return new WaitForSeconds(0.5f);
-            yield break;
         }
+        // 0. 전투 준비 (공격 속도에 따른 대기 시간 등)
+
+        //
+        // // 7. 사망 확인
+        // if (!defender.IsAlive)
+        // {
+        //     CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+        //     {
+        //         eventType = CombatEventType.UnitDefeated,
+        //         attacker = attacker,
+        //         defender = defender,
+        //         message = $"{defender.name} has been defeated!"
+        //     });
+        //     
+        //     defender.PlayAnimation("Death");
+        //     yield return new WaitForSeconds(1f);
+        //     
+        //     // 경험치 부여
+        //     LevelingSystem.Instance.GainExperience(attacker, 50);
+        // }
+        //
+        // // 8. 반격 판정 (방어자가 생존하고 사거리 내라면)
+        // if (defender.IsAlive && CanCounterAttack(defender, attacker))
+        // {
+        //     yield return new WaitForSeconds(0.5f);
+        //     
+        //     CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+        //     {
+        //         eventType = CombatEventType.CounterAttackStarted,
+        //         attacker = defender,
+        //         defender = attacker
+        //     });
+        //     
+        //     // 반격 실행
+        //     yield return StartCoroutine(ExecuteCounterAttack(defender, attacker));
+        // }
+    }
+    
+    /// <summary>
+    /// 두 유닛이 인접한지 확인 (헥사곤 그리드 기준)
+    /// </summary>
+    bool IsAdjacent(Unit unit1, Unit unit2)
+    {
+        if (unit1.CurrentTile == null || unit2.CurrentTile == null)
+            return false;
         
-        // 3. 데미지 계산
-        int damage = DamageCalculator.CalculateDamage(
-            attacker, 
-            defender, 
-            DamageType.Physical
-        );
+        List<TileCustomWithEvent> neighbors = GridManager.Instance.GetNeighbors(unit1.CurrentTile);
+        return neighbors.Contains(unit2.CurrentTile);
+    }
+    
+    /// <summary>
+    /// 공격자가 방어자에게 가장 가까운 인접 타일 찾기
+    /// </summary>
+    TileCustomWithEvent FindClosestAdjacentTile(Unit attacker, Unit defender)
+    {
+        if (defender.CurrentTile == null)
+            return null;
         
-        // 4. 데미지 적용
-        defender.TakeDamage(damage, DamageType.Physical);
+        // 방어자 주변의 인접 타일들 가져오기
+        List<TileCustomWithEvent> adjacentTiles = GridManager.Instance.GetNeighbors(defender.CurrentTile);
         
-        // 5. 데미지 이벤트 발생
-        CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+        TileCustomWithEvent closestTile = null;
+        float minDistance = float.MaxValue;
+        
+        foreach (TileCustomWithEvent tile in adjacentTiles)
         {
-            eventType = CombatEventType.DamageDealt,
-            attacker = attacker,
-            defender = defender,
-            damage = damage,
-            message = $"{attacker.name} dealt {damage} damage to {defender.name}!"
-        });
-        
-        // 6. 피격 애니메이션
-        defender.PlayAnimation("Hit");
-        
-        yield return new WaitForSeconds(0.3f);
-        
-        // 7. 사망 확인
-        if (!defender.IsAlive)
-        {
-            CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+            // 비어있는 타일만 고려
+            if (tile.OccupyingUnit != null && tile.OccupyingUnit != attacker)
+                continue;
+            
+            // 공격자의 이동 가능한 타일인지 확인
+            List<TileCustomWithEvent> movableTiles = attacker.GetMovableTiles();
+            if (!movableTiles.Contains(tile) && tile != attacker.CurrentTile)
+                continue;
+            
+            // 공격자로부터의 거리 계산
+            int distance = Mathf.Abs(tile.X - attacker.CurrentTile.X) + 
+                          Mathf.Abs(tile.Y - attacker.CurrentTile.Y);
+            
+            if (distance < minDistance)
             {
-                eventType = CombatEventType.UnitDefeated,
-                attacker = attacker,
-                defender = defender,
-                message = $"{defender.name} has been defeated!"
-            });
-            
-            defender.PlayAnimation("Death");
-            yield return new WaitForSeconds(1f);
-            
-            // 경험치 부여
-            LevelingSystem.Instance.GainExperience(attacker, 50);
+                minDistance = distance;
+                closestTile = tile;
+            }
         }
         
-        // 8. 반격 판정 (방어자가 생존하고 사거리 내라면)
-        if (defender.IsAlive && CanCounterAttack(defender, attacker))
-        {
-            yield return new WaitForSeconds(0.5f);
-            
-            CombatEventSystem.Instance.TriggerEvent(new CombatEvent
-            {
-                eventType = CombatEventType.CounterAttackStarted,
-                attacker = defender,
-                defender = attacker
-            });
-            
-            // 반격 실행
-            yield return StartCoroutine(ExecuteCounterAttack(defender, attacker));
-        }
+        return closestTile;
     }
     
     IEnumerator ExecuteCounterAttack(Unit counterAttacker, Unit originalAttacker)
@@ -135,7 +221,8 @@ public class CombatSequence : MonoBehaviour
             DamageType.Physical
         ) / 2; // 반격은 50% 데미지
         
-        originalAttacker.TakeDamage(counterDamage, DamageType.Physical);
+        //originalAttacker.TakeDamage(counterDamage, DamageType.Physical);
+        originalAttacker.TakeDamage(counterDamage);
         
         CombatEventSystem.Instance.TriggerEvent(new CombatEvent
         {

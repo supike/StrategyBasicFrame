@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using UnityEngine;
+
 namespace Combat
 {
     public enum CombatEventType
@@ -38,7 +41,7 @@ namespace Combat
         }
     }
 
-    public class CombatEventSystem : MonoBehaviour
+    public class CombatEventSystem: MonoBehaviour
     {
         public static CombatEventSystem Instance { get; private set; }
     
@@ -71,10 +74,11 @@ namespace Combat
             Debug.Log($"[{combatEvent.eventType}] {combatEvent.message}");
         }
     
-        public List<CombatEvent> GetRecentEvents(int count)
-        {
-            return combatLog.TakeLast(count).ToList();
-        }
+        // public List<CombatEvent> GetRecentEvents(int count)
+        // {
+        //     return combatLog.TakeLast(count).ToList();
+        //     
+        // }
     
         public void ClearLog()
         {

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Combat
 {
-    public class CombatModifiers : MonoBehaviour
+    public class CombatModifiers: MonoBehaviour
     {
         // 유닛 타입별 상성표
         private static Dictionary<(UnitType attacker, UnitType defender), float> typeAdvantages = 
@@ -29,20 +29,20 @@ namespace Combat
         }
         
         
-        static float GetTerrainBonus(Tile attackerTile, Tile defenderTile)
-        {
-            // 고지에서 공격 시 보너스
-            if (attackerTile.Height > defenderTile.Height)
-            {
-                return 1.2f; // +20%
-            }
-            // 저지에서 공격 시 페널티
-            else if (attackerTile.Height < defenderTile.Height)
-            {
-                return 0.8f; // -20%
-            }
-        
-            return 1f;
-        }
+        // static float GetTerrainBonus(Tile attackerTile, Tile defenderTile)
+        // {
+        //     // 고지에서 공격 시 보너스
+        //     if (attackerTile.Height > defenderTile.Height)
+        //     {
+        //         return 1.2f; // +20%
+        //     }
+        //     // 저지에서 공격 시 페널티
+        //     else if (attackerTile.Height < defenderTile.Height)
+        //     {
+        //         return 0.8f; // -20%
+        //     }
+        //
+        //     return 1f;
+        // }
     }
 }

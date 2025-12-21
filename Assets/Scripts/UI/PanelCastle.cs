@@ -1,3 +1,4 @@
+using Combat;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,6 +18,7 @@ public class PanelCastle : MonoBehaviour
     public void ButtonClick1()
     {
         Debug.Log("Button Clicked1");
+        CombatManager.Instance.StartCombat();
     }
     public void ButtonClick2()
     {

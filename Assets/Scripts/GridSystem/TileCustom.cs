@@ -67,15 +67,15 @@ public class TileCustom : TileBase
     set => this.m_ColliderType = value;
   }
 
-  public override void GetTileData(Vector3Int position, ITilemap tilemap, ref TileData tileData)
-  {
-    tileData.sprite = this.m_Sprite;
-    tileData.color = this.m_Color;
-    tileData.transform = this.m_Transform;
-    tileData.gameObject = this.m_InstancedGameObject;
-    tileData.flags = this.m_Flags;
-    //tileData.colliderType = this.m_ColliderType;
-  }
+  // public override void GetTileData(Vector3Int position, ITilemap tilemap, ref TileData tileData)
+  // {
+  //   tileData.sprite = this.m_Sprite;
+  //   tileData.color = this.m_Color;
+  //   tileData.transform = this.m_Transform;
+  //   tileData.gameObject = this.m_InstancedGameObject;
+  //   tileData.flags = this.m_Flags;
+  //   //tileData.colliderType = this.m_ColliderType;
+  // }
 
   /// <summary>
   ///   <para>Enum for determining what collider shape is generated for this Tile by the TilemapCollider2D.</para>

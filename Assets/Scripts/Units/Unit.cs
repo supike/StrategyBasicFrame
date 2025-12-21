@@ -1,7 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
+using UnityEngine.UI;
 
 [System.Serializable]
 public class UnitStats
@@ -31,9 +35,16 @@ public class UnitStats
 }
 public class Unit : MonoBehaviour
 {
-    [SerializeField] private UnitDataSO unitData;
+    [SerializeField] public  bool playerUnit = false;
+    [SerializeField] public  UnitDataSO unitData;
     [SerializeField] public UnitStats stats;
     [SerializeField] private Tilemap tilemap;
+    [SerializeField] private Animator animator;
+    [SerializeField] private Image attackCoolTimeImage;
+    [SerializeField] private TMPro.TextMeshProUGUI healthText;
+    [SerializeField] private Image healthSlider;
+    [SerializeField] private TMPro.TextMeshProUGUI name;
+    public Unit targetUnit{ get; set; }
     public string UnitName => unitData.unitName;
     public int CurrentHealth { get; private set; }  //체력
     public int CurrentStamina { get; private set; } //지구력: 행동 후 감소, 휴식 시 회복
@@ -48,37 +59,145 @@ public class Unit : MonoBehaviour
     private bool hasMovedThisTurn = false;
     private bool hasAttackedThisTurn = false;
     private bool isMoving;
+    [SerializeField] private int direction;     // 1: 오른쪽, -1: 왼쪽
     
-    [SerializeField] private float timeToMove = 3f;
+    
+    [SerializeField] private float moveSpeed = 5f; // 이동 속도 (units per second)
+    public System.Action<Unit> OnReadyForAttack;
+
+    private bool readyForAttack = false;
+    private GameObject charStatusUI ;
+    private void Awake()
+    {
+        animator = GetComponent<Animator>();
+        CurrentHealth = MaxHealth;
+        charStatusUI = this.transform.Find("CharStatusUI").gameObject;
+        
+        // Combat.CombatEventSystem.Instance.OnCombatEvent += HandleCombatEvent;
+    }
 
     void Start()
     {
-        CurrentHealth = MaxHealth;
+        // 유닛 초기화
+        name.text = UnitName;
+        healthText.text = $"{CurrentHealth} / {MaxHealth}";
+        healthSlider.fillAmount = (float)CurrentHealth / MaxHealth;
         /////////////////////ToDo Test, Delete Later//////////////////
         /// 로직 테스트용 목적으로 구현하지만 나중에는 구조적으로 분리하자.
         Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
+        Debug.Log($"[Unit Start] cellPosition: {cellPosition}");
+        
         TileBase curTile = tilemap.GetTile<TileBase>(cellPosition);
+        Debug.Log($"[Unit Start] curTile type: {curTile?.GetType().Name}, curTile: {curTile}");
+        
         if (curTile is TileCustomWithEvent)
         {
             Debug.Log("TileCustomWithEvent found");
             TileCustomWithEvent tileWithEvent = curTile as TileCustomWithEvent;
+            
+            // Initialize 전 좌표 출력
+            Debug.Log($"[Before Initialize] Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
+            
+            // 타일의 좌표를 실제 셀 좌표로 초기화
+            tileWithEvent.Initialize(cellPosition.x, cellPosition.y, true);
+            
+            // Initialize 후 좌표 출력
+            Debug.Log($"[After Initialize] cellPosition: ({cellPosition.x}, {cellPosition.y}) -> Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
+            
+            // 검증: 좌표가 일치하는지 확인
+            if (tileWithEvent.X == cellPosition.x && tileWithEvent.Y == cellPosition.y)
+            {
+                Debug.Log($"✓ 좌표 동기화 성공!");
+            }
+            else
+            {
+                Debug.LogWarning($"✗ 좌표 불일치! cellPosition: ({cellPosition.x}, {cellPosition.y}), Tile: ({tileWithEvent.X}, {tileWithEvent.Y})");
+            }
+            
             Initialize(tileWithEvent);
         }
-        Debug.Log(cellPosition);
+        else
+        {
+            Debug.LogWarning($"[Unit Start] TileCustomWithEvent NOT found at {cellPosition}");
+        }
         
         // 셀의 중심 월드 좌표를 가져옴
         Vector3 centerPosition = tilemap.GetCellCenterWorld(cellPosition);
-        Debug.Log(centerPosition);
-        
-        // 오브젝트를 중심으로 이동
-        //transform.position = new Vector3(centerPosition.x, centerPosition.y +1.25f, transform.position.z);
-        //transform.position = new Vector3(0,0,0);
-        Debug.Log(transform.position);
+        Debug.Log($"[Unit Start] centerPosition: {centerPosition}");
+ 
         StartCoroutine(MovePlayer(centerPosition));
-        ///////////////////////////////////
-        /// ToDo 주변 타일 검사해서 위치 이동 및 적 존재 유무 확인
+
+    }
+    public void Update()
+    {
+        // 애니메이션 상태에 따른 이동 플래그 설정
+        if (animator != null)
+        {
+            isMoving = animator.GetCurrentAnimatorStateInfo(0).IsName("Walk");
+        }
+        // 방향에 따라 객체 뒤집기
+        SetDirection(direction);
+
+        // 테스트용 이동 코드, 나중에 삭제 필요
+        if (Input.GetKeyDown(KeyCode.RightArrow) && playerUnit)
+        {
+            Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
+            Debug.Log("world to cell: "+cellPosition);
+            cellPosition.x++;
+            
+            Vector3 centerPosition = tilemap.GetCellCenterWorld(cellPosition);
+            Debug.Log("centerPosition: "+centerPosition);
+                
+            StartCoroutine(MovePlayer(centerPosition));
+            //StartCoroutine(MovePlayer(new Vector3(2, 0, 0)));
+            // Debug.Log("world to cell: "+cellPosition);
+            
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftArrow) && playerUnit)
+        {
+            Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
+            Debug.Log("world to cell: "+cellPosition);
+            cellPosition.x--;
+            Vector3 centerPosition = tilemap.GetCellCenterWorld(cellPosition);
+            Debug.Log("centerPosition: "+centerPosition);
+            
+            StartCoroutine(MovePlayer(centerPosition));
+        }
+
+        if (Input.GetMouseButtonDown(0) && playerUnit)
+        {
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Vector3Int cellPosition = tilemap.WorldToCell(mouseWorldPos);
+            Vector3 centerPosition = tilemap.GetCellCenterWorld(cellPosition);
+            //todo : 이동 가능 타일인지 체크 필요
+            StartCoroutine(MoveTo(GridManager.Instance.GetTileAtCellPosition(cellPosition))); 
+            // StartCoroutine(MovePlayer(centerPosition));
+        }
     }
     
+    /// <summary>
+    /// 공격 준비. 쿨타임 UI 초기화 및 공격 속도에 따른 플래그 설정
+    /// </summary>
+    public IEnumerator PrepareForAttack()
+    {
+        attackCoolTimeImage.fillAmount = 0f;
+        // readyForAttack = true;
+        // yield return StartCoroutine(RunAttackCooldown());
+        float elapsedTime = 0f;
+        while (elapsedTime < stats.attackSpeed)
+        {
+            attackCoolTimeImage.fillAmount = elapsedTime / stats.attackSpeed;
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+        attackCoolTimeImage.fillAmount = 1f;
+        OnReadyForAttack?.Invoke(this);
+    }
+
+    // public IEnumerator RunAttackCooldown()
+    // {
+    // }
     public void Initialize(TileCustomWithEvent startTile)
     {
         CurrentTile = startTile;
@@ -134,24 +253,47 @@ public class Unit : MonoBehaviour
         
         return movableTiles;
     }
-    
+    /// <summary>
+    /// 유닛을 타겟 타일로 이동시키는 코루틴
+    /// 타일 간 이동 애니메이션 포함
+    /// </summary>
+    /// <param name="targetTile"></param>
+    /// <returns></returns>
     public IEnumerator MoveTo(TileCustomWithEvent targetTile)
     {
         if (!CanMove()) yield break;
         
         List<TileCustomWithEvent> path = Pathfinding.Instance.FindPath(CurrentTile, targetTile);
         
-        if (path != null)
+        if (path != null && path.Count > 0)
         {
             CurrentTile.ClearOccupied();
             
+            // path의 각 타일을 순차적으로 이동
             foreach (TileCustomWithEvent tile in path)
             {
-                //transform.position = tile.transform.position;
-                yield return new WaitForSeconds(0.2f);
+                // 타일의 셀 좌표를 월드 좌표로 변환
+                Vector3Int cellPosition = new Vector3Int(tile.X, tile.Y, 0);
+                Vector3 centerPosition = tilemap.GetCellCenterWorld(cellPosition);
+                
+                // 이동 방향 설정 (좌우 반전용)
+                if (tile.X > CurrentTile.X)
+                {
+                    SetDirection(1); // 오른쪽
+                }
+                else if (tile.X < CurrentTile.X)
+                {
+                    SetDirection(-1); // 왼쪽
+                }
+                
+                // 해당 타일로 이동 (코루틴 완료 대기)
+                yield return StartCoroutine(MovePlayer(centerPosition));
+                
+                // 현재 타일 업데이트
+                CurrentTile = tile;
             }
             
-            CurrentTile = targetTile;
+            // 최종 목적지 타일 점유 설정
             targetTile.SetOccupied(this);
             hasMovedThisTurn = true;
         }
@@ -170,16 +312,23 @@ public class Unit : MonoBehaviour
     {
         CurrentHealth -= damage;
         CurrentHealth = Mathf.Max(0, CurrentHealth);
-        
+        healthText.text = $"{CurrentHealth} / {MaxHealth}";
+        healthSlider.fillAmount = (float)CurrentHealth / MaxHealth;
         if (!IsAlive)
         {
             Die();
         }
+        DamagePopUpGenerator.Instance.CreateDamagePopUp(transform.position, damage.ToString());
     }
-    
+
+    public void Dodge()
+    {
+        DamagePopUpGenerator.Instance.CreateDamagePopUp(transform.position, "Miss");
+    }
     void Die()
     {
         CurrentTile.ClearOccupied();
+        PlayAnimation("Die");
         Destroy(gameObject);
     }
     
@@ -231,6 +380,12 @@ public class Unit : MonoBehaviour
         return null;
     }
     
+    /// <summary>
+    /// 유닛을 지정된 방향으로 부드럽게 이동시키는 코루틴
+    /// 좌표는 타일맵의 중심 좌표여야 함
+    /// </summary>
+    /// <param name="direction"></param>
+    /// <returns></returns>
     IEnumerator MovePlayer(Vector3 direction)
     {
         isMoving = true;
@@ -240,12 +395,15 @@ public class Unit : MonoBehaviour
         Vector3 targetPosition = direction;
         targetPosition.y = targetPosition.y + 1.25f; // Adjust for unit height
         
-        while (elapsedTime < timeToMove)
+        float distance = Vector3.Distance(startPosition, targetPosition);
+        float moveDuration = distance / moveSpeed; // Calculate duration based on distance and speed
+        
+        while (elapsedTime < moveDuration)
         {
             transform.position = Vector3.Lerp(
                 startPosition,
                 targetPosition,
-                elapsedTime / timeToMove
+                elapsedTime / moveDuration  // 0 -> 1로 선형 증가
             );
             elapsedTime += Time.deltaTime;
             yield return null;
@@ -254,4 +412,24 @@ public class Unit : MonoBehaviour
         transform.position = targetPosition;
         isMoving = false;
     }
+
+    public void PlayAnimation(string attack)
+    {
+        animator.Play(attack);
+    }
+
+    public void SetDirection(int dir)
+    {
+        direction = dir >= 0 ? 1 : -1;
+
+        // body가 애니메이터에 의해 스케일이 덮어쓰이지 않는 객체여야 함.
+        Vector3 scale =this.transform.localScale;
+        scale.x = Mathf.Abs(scale.x) * direction;
+        this.transform.localScale = scale;
+        
+        Vector3 scaleui =charStatusUI.transform.localScale;
+        scaleui .x = Mathf.Abs(scaleui.x) * direction;
+        charStatusUI.transform.localScale = scaleui;
+    }
 }
+

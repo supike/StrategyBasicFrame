@@ -18,7 +18,11 @@ public enum UnitType
     Mounted,   // 기마
     Special    // 특수
 }
-// Model: 게임 데이터 저장
+
+/// <summary>
+/// Model: 게임 데이터 저장.
+/// 유닛의 기본 데이터와 스탯을 정의하는 ScriptableObject.
+/// </summary>
 [CreateAssetMenu(fileName = "UnitData", menuName = "Game/Unit Data")]
 public class UnitDataSO : ScriptableObject
 {
@@ -27,7 +31,7 @@ public class UnitDataSO : ScriptableObject
     public UnitClass unitClass;
     public UnitType unitType;
     public Sprite icon;
-    public GameObject prefab;
+    //public GameObject prefab;
     
     [Header("Combat Stats")]
     public int maxHealth;
@@ -66,4 +70,8 @@ public class UnitDataSO : ScriptableObject
     
     //[Header("Special Abilities")]
     //public List<AbilitySO> abilities;
+    
+    [Header("Description")]
+    [TextArea(3, 10)]
+    public string description;
 }
