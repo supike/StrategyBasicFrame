@@ -21,6 +21,13 @@ public class TileCustomWithEvent : TileCustom
     public TileCustomWithEvent Parent { get; set; }
     
     private SpriteRenderer spriteRenderer;
+
+    public TileCustomWithEvent(int x, int y, bool walkable)
+    {
+        X = x;
+        Y = y;
+        IsWalkable = walkable;
+    }
     
     public void Initialize(int x, int y, bool walkable)
     {

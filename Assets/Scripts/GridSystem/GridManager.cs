@@ -34,9 +34,10 @@ public class GridManager: MonoBehaviour
     [SerializeField] private float cellSize = 1f;
     [SerializeField] private GameObject tilePrefab;
     
-    private TileCustomWithEvent[,] grid;
-    private Dictionary<Vector2Int, TileCustomWithEvent> tileDict;
-    
+    // 제거: 공유된 에셋 배열/딕셔너리는 오해 소지가 있어 사용하지 않음
+    // private TileCustomWithEvent[,] grid;
+    // private Dictionary<Vector2Int, TileCustomWithEvent> tileDict;
+
     // 셀 좌표별 타일 데이터 관리
     private Dictionary<Vector3Int, TileData> tileDataDict = new Dictionary<Vector3Int, TileData>();
 
@@ -93,11 +94,10 @@ public class GridManager: MonoBehaviour
     /// </summary>
     public TileCustomWithEvent GetTileAtCellPosition(Vector3Int cellPosition)
     {
+        // 기존처럼 에셋의 X/Y를 변경하면 공유 에셋이 오염되므로 Initialize 호출 제거
         TileBase tile = tilemap.GetTile(cellPosition);
         if (tile is TileCustomWithEvent customTile)
         {
-            // 타일 좌표를 셀 좌표로 강제 동기화
-            customTile.Initialize(cellPosition.x, cellPosition.y, true);
             return customTile;
         }
         return null;
@@ -120,23 +120,51 @@ public class GridManager: MonoBehaviour
     public List<TileCustomWithEvent> GetNeighbors(TileCustomWithEvent tile)
     {
         List<TileCustomWithEvent> neighbors = new List<TileCustomWithEvent>();
-        
-        Vector3Int currentCell = new Vector3Int(tile.X, tile.Y, 0);
-        
-        // Hexagonal 타일맵의 6방향 이웃
+// 에셋만으로는 위치를 알기 어려우므로 tileDataDict에서 해당 에셋이 사용된 셀을 찾아 사용
+        // 동일 에셋이 여러 셀에 쓰인다면 첫 매칭을 사용함(권장: TileData로 호출)
+        TileData found = null;
+        foreach (var kv in tileDataDict)
+        {
+            if (kv.Value.TileAsset == tile)
+            {
+                found = kv.Value;
+                break;
+            }
+        }
+
+        if (found == null)
+        {
+            // fallback: 에셋에 저장된 X/Y를 사용하되, 이 값은 신뢰할 수 없음
+            Debug.LogWarning("GetNeighbors: 해당 에셋의 TileData를 찾을 수 없습니다. TileData 기반 호출을 권장합니다.");
+            Vector3Int currentCellFallback = new Vector3Int(tile.X, tile.Y, 0);
+            Vector3Int[] hexDirectionsFallback = GetHexDirections(currentCellFallback.y);
+            foreach (var dir in hexDirectionsFallback)
+            {
+                Vector3Int neighborCell = currentCellFallback + dir;
+                TileBase neighborBase = tilemap.GetTile(neighborCell);
+                if (neighborBase is TileCustomWithEvent neighborTile && neighborTile.IsWalkable)
+                {
+                    //todo : 타일 SO로 인한 변수 중복 참조 문제 해결 필요
+                    neighbors.Add(neighborTile);
+                }
+            }
+            return neighbors;
+        }
+
+        Vector3Int currentCell = found.CellPosition;
         Vector3Int[] hexDirections = GetHexDirections(currentCell.y);
-        
+
         foreach (var dir in hexDirections)
         {
             Vector3Int neighborCell = currentCell + dir;
-            TileCustomWithEvent neighbor = GetTileAtCellPosition(neighborCell);
-            
-            if (neighbor != null && neighbor.IsWalkable)
+            TileData neighborData = GetTileDataAtCellPosition(neighborCell);
+
+            if (neighborData != null && neighborData.IsWalkable)
             {
-                neighbors.Add(neighbor);
+                neighbors.Add(neighborData.TileAsset);
             }
         }
-        
+
         return neighbors;
     }
     
@@ -246,7 +274,18 @@ public class GridManager: MonoBehaviour
                 
                 if (tile is TileCustomWithEvent customTile)
                 {
-                    customTile.Initialize(x, y, true);
+                    // 에셋을 직접 초기화하지 않고 TileData로 관리
+                    if (!tileDataDict.ContainsKey(cellPosition))
+                    {
+                        var data = new TileData
+                        {
+                            CellPosition = cellPosition,
+                            TileAsset = customTile,
+                            OccupyingUnit = null
+                        };
+                        tileDataDict[cellPosition] = data;
+                    }
+                    // customTile.Initialize(x, y, true);
                     Debug.Log($"Tile initialized at ({x}, {y})");
                 }
             }

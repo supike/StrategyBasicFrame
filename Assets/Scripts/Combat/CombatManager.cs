@@ -34,8 +34,6 @@ namespace Combat
             combatSequence = GetComponent<CombatSequence>();
             combatEventSystem = CombatEventSystem.Instance;
             
-            // 씬의 모든 유닛 찾기
-            FindAllUnits();
         }
 
         private void Start()
@@ -49,6 +47,10 @@ namespace Combat
         }
         public void StartCombat()
         {
+            
+            // 씬의 모든 유닛 찾기
+            FindAllUnits();
+            
             // 전투 시작 로직 구현
             Debug.Log("전투 시작!");
             // 예시: 첫 번째 플레이어 유닛과 첫 번째 적 유닛 간 전투
