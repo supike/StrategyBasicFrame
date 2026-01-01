@@ -14,7 +14,6 @@ public class CombatSequence : MonoBehaviour
         actionQueue.Enqueue(action);
         
         // if (!isExecuting)
-        if (true)
         {
             StartCoroutine(ExecuteCombatSequence());
         }
@@ -39,19 +38,21 @@ public class CombatSequence : MonoBehaviour
         Unit attacker = action.attacker;
         Unit defender = action.defender;
 
+        
         // 근거리 공격 범위 확인 및 이동
-        if (!IsAdjacent(attacker, defender))
+        // if (!IsAdjacent(attacker, defender))
+        while (!IsAdjacent(attacker, defender))
         {
             Debug.Log($"{attacker.name} is not adjacent to {defender.name}. Moving closer...");
             
             // 방어자에게 가장 가까운 인접 타일 찾기
             TileCustomWithEvent targetTile = FindClosestAdjacentTile(attacker, defender);
             
-            if (targetTile != null && attacker.CanMove())
+            if (targetTile != null /*&& attacker.CanMove()*/)
             {
                 // 이동 애니메이션 실행
                 yield return StartCoroutine(attacker.MoveTo(targetTile));
-                yield return new WaitForSeconds(0.3f);
+                yield return new WaitForSeconds(0.0f);
             }
             else
             {
@@ -63,6 +64,13 @@ public class CombatSequence : MonoBehaviour
         bool endCombat = false;
         while (!endCombat)
         {
+            if (defender.isMoving)
+            {
+                yield return new WaitForSeconds(0.1f);
+                continue;
+            }
+                
+            
             // 공격 준비 쿨 타임을 기다림`
             yield return attacker.PrepareForAttack();
         
@@ -167,8 +175,18 @@ public class CombatSequence : MonoBehaviour
         if (unit1.CurrentTile == null || unit2.CurrentTile == null)
             return false;
         
-        List<TileCustomWithEvent> neighbors = GridManager.Instance.GetNeighbors(unit1.CurrentTile);
-        return neighbors.Contains(unit2.CurrentTile);
+        // List<TileCustomWithEvent> neighbors = GridManager.Instance.GetNeighbors(unit1.CurrentTile);
+        List<TileCustomWithEvent> neighbors = GridManager.Instance.GetNeighbors(new Vector3Int(unit1.CurrentTile.X, unit1.CurrentTile.Y));
+
+        foreach (TileCustomWithEvent cusTile in neighbors)
+        {
+            if (cusTile.X == unit2.CurrentTile.X && cusTile.Y == unit2.CurrentTile.Y)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
     
     /// <summary>
@@ -180,32 +198,43 @@ public class CombatSequence : MonoBehaviour
             return null;
         
         // 방어자 주변의 인접 타일들 가져오기
-        List<TileCustomWithEvent> adjacentTiles = GridManager.Instance.GetNeighbors(defender.CurrentTile);
+        // List<TileCustomWithEvent> adjacentTiles = GridManager.Instance.GetNeighbors(new Vector3Int(defender.CurrentTile.X, defender.CurrentTile.Y));
         
         TileCustomWithEvent closestTile = null;
         float minDistance = float.MaxValue;
         
-        foreach (TileCustomWithEvent tile in adjacentTiles)
-        {
+        // foreach (Vector3Int tile in adjacentTiles)
+        // {
+            // TileData tileCustome = GridManager.Instance.GetTileDataAtCellPosition(new Vector3Int(tile.x, tile.y, 0));
             // 비어있는 타일만 고려
-            if (tile.OccupyingUnit != null && tile.OccupyingUnit != attacker)
-                continue;
-            
+            // if (tile.OccupyingUnit != null && tile.OccupyingUnit != attacker)
+            //     continue;
+            // todo: 중복 이동 문제 해결하자.
             // 공격자의 이동 가능한 타일인지 확인
             List<TileCustomWithEvent> movableTiles = attacker.GetMovableTiles();
-            if (!movableTiles.Contains(tile) && tile != attacker.CurrentTile)
-                continue;
-            
-            // 공격자로부터의 거리 계산
-            int distance = Mathf.Abs(tile.X - attacker.CurrentTile.X) + 
-                          Mathf.Abs(tile.Y - attacker.CurrentTile.Y);
-            
-            if (distance < minDistance)
+            foreach (TileCustomWithEvent tileCustomeMovable in movableTiles)
             {
-                minDistance = distance;
-                closestTile = tile;
+                int distance = Mathf.Abs(tileCustomeMovable.X - defender.CurrentTile.X) + 
+                               Mathf.Abs(tileCustomeMovable.Y - defender.CurrentTile.Y);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestTile = tileCustomeMovable;
+                }
             }
-        }
+            // if (!movableTiles.Contains(tile) && tile != attacker.CurrentTile)
+            //     continue;
+            //
+            // // 공격자로부터의 거리 계산
+            // int distance = Mathf.Abs(tile.X - attacker.CurrentTile.X) + 
+            //               Mathf.Abs(tile.Y - attacker.CurrentTile.Y);
+            //
+            // if (distance < minDistance)
+            // {
+            //     minDistance = distance;
+            //     closestTile = tile;
+            // }
+        // }
         
         return closestTile;
     }

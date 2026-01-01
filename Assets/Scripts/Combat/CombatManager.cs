@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace Combat
 {
@@ -10,6 +11,7 @@ namespace Combat
         private CombatEventSystem combatEventSystem;
         [SerializeField]private Unit playerUnit;
         [SerializeField]private Unit[] enermyUnits;
+        public GameObject PauseUI;
         
         // 모든 유닛 리스트
         private Unit[] allPlayerUnits;
@@ -38,26 +40,82 @@ namespace Combat
 
         private void Start()
         {
-            // // 예시: 첫 번째 플레이어 유닛과 첫 번째 적 유닛 간 전투
-            // if (allPlayerUnits.Length > 0 && allEnemyUnits.Length > 0)
-            // {
-            //     EnermyContact(allPlayerUnits[0], allEnemyUnits[0]);
-            //     EnermyContact(allEnemyUnits[0], allPlayerUnits[0]); 
-            // }
+            // 씬의 모든 유닛 찾기
+            FindAllUnits();
         }
+
+        // private bool playerAttacking = false;
+        void Update()
+        {
+
+            // player 공격 로직
+            for (int i = 0; i < allPlayerUnits.Length; i++)
+            {
+                if (allPlayerUnits[i] != null && allEnemyUnits.Length > 0)
+                {
+                    // playerAttacking = true;
+                    if (allPlayerUnits[i].targetUnit == null)
+                    {
+                        foreach (Unit unitEnermy in allEnemyUnits)
+                        {
+                            if (unitEnermy != null)
+                            {
+                                allPlayerUnits[i].targetUnit = unitEnermy;
+                                EnermyContact(allPlayerUnits[i], unitEnermy);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Enermy 공격 로직
+            for (int i = 0; i < allEnemyUnits.Length; i++)
+            {
+                if (allEnemyUnits[i] != null && allPlayerUnits.Length > 0)
+                {
+                    // playerAttacking = false;
+                    if (allEnemyUnits[i].targetUnit == null)
+                    {
+                        foreach (Unit unitPlayer in allPlayerUnits)
+                        {
+                            if (unitPlayer != null)
+                            {
+                                allEnemyUnits[i].targetUnit = unitPlayer;
+                                EnermyContact(allEnemyUnits[i], unitPlayer);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         public void StartCombat()
         {
             
-            // 씬의 모든 유닛 찾기
-            FindAllUnits();
             
             // 전투 시작 로직 구현
             Debug.Log("전투 시작!");
             // 예시: 첫 번째 플레이어 유닛과 첫 번째 적 유닛 간 전투
             if (allPlayerUnits.Length > 0 && allEnemyUnits.Length > 0)
             {
-                EnermyContact(allPlayerUnits[0], allEnemyUnits[0]);
-                EnermyContact(allEnemyUnits[0], allPlayerUnits[0]); 
+                for (int i = 0; i < allPlayerUnits.Length; i++)
+                {
+                    if (allPlayerUnits[i] != null && allEnemyUnits[0] != null)
+                        EnermyContact(allPlayerUnits[i], allEnemyUnits[0]);
+              
+                }
+
+                for (int i = 0; i < allEnemyUnits.Length; i++)
+                {
+                    if (allEnemyUnits[i] != null && allPlayerUnits[0] != null)
+                    {
+                        EnermyContact(allEnemyUnits[i], allPlayerUnits[0]); 
+                        
+                    }
+                }
+                
             }
         }
 
@@ -108,6 +166,31 @@ namespace Combat
 
             combatSequence.QueueCombatAction(action);
             
+        }
+
+        /// <summary>
+        /// 모든 아군 및 적군 유닛의 행동을 일시 정지하거나 재개합니다.
+        /// </summary>
+        /// <param name="pause">true일 경우 정지, false일 경우 재개</param>
+        public void PauseAllUnits(bool pause)
+        {
+            PauseUI.SetActive(pause);
+            
+            if (allPlayerUnits != null)
+            {
+                foreach (Unit unit in allPlayerUnits)
+                {
+                    if (unit != null) unit.SetPause(pause);
+                }
+            }
+
+            if (allEnemyUnits != null)
+            {
+                foreach (Unit unit in allEnemyUnits)
+                {
+                    if (unit != null) unit.SetPause(pause);
+                }
+            }
         }
     }
 }

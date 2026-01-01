@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -5,7 +6,15 @@ public class Pathfinding : MonoBehaviour
 {
     static public Pathfinding Instance { get; private set; }
     private GridManager gridManager;
-    
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+    }
+
     void Start()
     {
         gridManager = GridManager.Instance;
