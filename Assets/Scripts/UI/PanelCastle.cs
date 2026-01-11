@@ -17,12 +17,11 @@ public class PanelCastle : MonoBehaviour
     }
     public void ButtonClick1()
     {
-        Debug.Log("Button Clicked1");
-        CombatManager.Instance.StartCombat();
+        CombatManager.Instance.AttackMode();
     }
     public void ButtonClick2()
     {
-        Debug.Log("Button Clicked2");
+        CombatManager.Instance.DefenceMode();
     }
     public void ButtonClick3()
     {

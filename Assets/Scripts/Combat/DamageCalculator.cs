@@ -85,7 +85,12 @@ public class DamageCalculator: MonoBehaviour
         }
         
         int reducedDamage = Mathf.RoundToInt(baseDamage * damageMultiplier);
-        
+        // 전투 모드에 따른 데미지 조정.
+        if (defender.stats.unitMode == UnitMode.Defence)
+        {
+            reducedDamage = Mathf.RoundToInt(reducedDamage * .5f);
+        }
+
         // 5. 유닛 타입 상성 적용
         float typeAdvantage = CombatModifiers.GetTypeAdvantage(
             attacker.unitData.unitType, 

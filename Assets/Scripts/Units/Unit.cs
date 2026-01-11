@@ -8,9 +8,22 @@ using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 
+public enum UnitMode
+{
+    Normal,
+    Attack,
+    Defence,
+}
+
 [System.Serializable]
 public class UnitStats
 {
+
+    
+    [Header("모드")]
+    public UnitMode unitMode = UnitMode.Normal;
+
+    
     [Header("기본 스탯")]
     public int currentHealth;
     public int maxHealth;
@@ -50,7 +63,7 @@ public class Unit : MonoBehaviour
     public int CurrentHealth { get; private set; }  //체력
     public int CurrentStamina { get; private set; } //지구력: 행동 후 감소, 휴식 시 회복
     public int CurrentMorale { get; private set; }  //사기: 높으면 공격적, 낮으면 방어적
-    public int MaxHealth => unitData.maxHealth;
+    private int MaxHealth => unitData.maxHealth;
     public int AttackPower => unitData.attack;
     public int MovementRange => unitData.movementRange;
     public bool IsAlive => CurrentHealth > 0;
@@ -72,6 +85,13 @@ public class Unit : MonoBehaviour
     private GameObject charStatusUI ;
     
     public GameObject playerUI;
+    
+    public GameObject[] battleMode;
+
+    public bool IsStunned;
+    public bool IsSlowed;
+    
+
     private void Awake()
     {
         animator = GetComponent<Animator>();
@@ -86,20 +106,22 @@ public class Unit : MonoBehaviour
     {
         // 유닛 초기화
         name.text = UnitName;
-        healthText.text = $"{CurrentHealth} / {MaxHealth}";
+        healthText.text = $"{CurrentHealth}";
         healthSlider.fillAmount = (float)CurrentHealth / MaxHealth;
         
         SpriteRenderer sr = playerUI.GetComponentInChildren<SpriteRenderer>();
         sr.sprite = unitData.icon;
         
+        battleMode[0].gameObject.SetActive(true);
+        SetBattleMode(UnitMode.Normal);
         
         /////////////////////ToDo Test, Delete Later//////////////////
         /// 로직 테스트용 목적으로 구현하지만 나중에는 구조적으로 분리하자.
         Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
-        Debug.Log($"[Unit Start] cellPosition: {cellPosition}");
+        // Debug.Log($"[Unit Start] cellPosition: {cellPosition}");
         
         TileBase curTile = Instantiate(tilemap.GetTile<TileBase>(cellPosition)) ;
-        Debug.Log($"[Unit Start] curTile type: {curTile?.GetType().Name}, curTile: {curTile}");
+        // Debug.Log($"[Unit Start] curTile type: {curTile?.GetType().Name}, curTile: {curTile}");
         
         if (curTile is TileCustomWithEvent)
         {
@@ -108,34 +130,34 @@ public class Unit : MonoBehaviour
             tileWithEvent.Initialize(cellPosition.x, cellPosition.y, false);
             
             // Initialize 전 좌표 출력
-            Debug.Log($"[Before Initialize] Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
+            // Debug.Log($"[Before Initialize] Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
             
             // 타일의 좌표를 실제 셀 좌표로 초기화
             //tileWithEvent.Initialize(cellPosition.x, cellPosition.y, true);
             
             // Initialize 후 좌표 출력
-            Debug.Log($"[After Initialize] cellPosition: ({cellPosition.x}, {cellPosition.y}) -> Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
+            // Debug.Log($"[After Initialize] cellPosition: ({cellPosition.x}, {cellPosition.y}) -> Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
             
             // 검증: 좌표가 일치하는지 확인
             if (tileWithEvent.X == cellPosition.x && tileWithEvent.Y == cellPosition.y)
             {
-                Debug.Log($"✓ 좌표 동기화 성공!");
+                // Debug.Log($"✓ 좌표 동기화 성공!");
             }
             else
             {
-                Debug.LogWarning($"✗ 좌표 불일치! cellPosition: ({cellPosition.x}, {cellPosition.y}), Tile: ({tileWithEvent.X}, {tileWithEvent.Y})");
+                // Debug.LogWarning($"✗ 좌표 불일치! cellPosition: ({cellPosition.x}, {cellPosition.y}), Tile: ({tileWithEvent.X}, {tileWithEvent.Y})");
             }
             
             Initialize(tileWithEvent);
         }
         else
         {
-            Debug.LogWarning($"[Unit Start] TileCustomWithEvent NOT found at {cellPosition}");
+            // Debug.LogWarning($"[Unit Start] TileCustomWithEvent NOT found at {cellPosition}");
         }
         
         // 셀의 중심 월드 좌표를 가져옴
         Vector3 centerPosition = tilemap.GetCellCenterWorld(cellPosition);
-        Debug.Log($"[Unit Start] centerPosition: {centerPosition}");
+        // Debug.Log($"[Unit Start] centerPosition: {centerPosition}");
  
         StartCoroutine(MovePlayer(centerPosition));
 
@@ -202,12 +224,27 @@ public class Unit : MonoBehaviour
     /// </summary>
     public IEnumerator PrepareForAttack()
     {
+        // 타겟 유닛이 없으면 즉시 정지
+        if (!targetUnit.IsAlive || targetUnit == null)
+        {
+            Debug.LogWarning($"[{UnitName}] targetUnit is null. PrepareForAttack stopped.");
+            yield break;
+        }
+
         attackCoolTimeImage.fillAmount = 0f;
         // readyForAttack = true;
         // yield return StartCoroutine(RunAttackCooldown());
         float elapsedTime = 0f;
         while (elapsedTime < stats.attackSpeed)
         {
+            // 진행 중 타겟이 사라지면 즉시 정지
+            if (targetUnit == null || !IsAlive)
+            {
+                Debug.LogWarning($"[{UnitName}] targetUnit disappeared during PrepareForAttack. Stopping.");
+                attackCoolTimeImage.fillAmount = 0f;
+                yield break;
+            }
+
             if (isPaused)
             {
                 yield return null;
@@ -315,6 +352,9 @@ public class Unit : MonoBehaviour
         GridManager.Instance.GetTileAtCellPosition(new Vector3Int(CurrentTile.X, CurrentTile.Y, 0)).OccupyingUnit = null;
         CurrentTile.ClearOccupied();
 
+        // 새로운 위치 점유 설정 (이동 시작 전에 미리 점유!)
+        GridManager.Instance.GetTileAtCellPosition(new Vector3Int(targetTile.X, targetTile.Y, 0)).OccupyingUnit = this;
+
         Vector3 centerPosition = tilemap.GetCellCenterWorld(new Vector3Int(targetTile.GridPosition.x, targetTile.GridPosition.y, 0));
         
         // 이동 방향 설정
@@ -329,14 +369,11 @@ public class Unit : MonoBehaviour
 
         // 현재 타일 정보 업데이트
         CurrentTile.Initialize(targetTile.GridPosition.x, targetTile.GridPosition.y, false);
+        CurrentTile.SetOccupied(this);
         
         // 이동 애니메이션
         yield return StartCoroutine(MovePlayer(centerPosition));
         
-        // 새로운 위치 점유 설정
-        GridManager.Instance.GetTileAtCellPosition(new Vector3Int(targetTile.X, targetTile.Y, 0)).OccupyingUnit = this;
-        CurrentTile.SetOccupied(this);
-
         // hasMovedThisTurn = true;
     }
     
@@ -349,17 +386,21 @@ public class Unit : MonoBehaviour
         hasAttackedThisTurn = true;
     }
     
-    public void TakeDamage(int damage)
+    public bool TakeDamage(int damage)
     {
         CurrentHealth -= damage;
         CurrentHealth = Mathf.Max(0, CurrentHealth);
-        healthText.text = $"{CurrentHealth} / {MaxHealth}";
+        healthText.text = $"{CurrentHealth}";
         healthSlider.fillAmount = (float)CurrentHealth / MaxHealth;
         DamagePopUpGenerator.Instance.CreateDamagePopUp(transform.position, damage.ToString());
+        
+        // PlayAnimation("Hit");
         if (!IsAlive)
         {
             Die();
         }
+
+        return IsAlive;
     }
 
     public void Dodge()
@@ -372,8 +413,7 @@ public class Unit : MonoBehaviour
         // GridManager에서도 제거
         GridManager.Instance.GetTileAtCellPosition(new Vector3Int(CurrentTile.X, CurrentTile.Y, 0)).OccupyingUnit = null;
         
-        PlayAnimation("Die");
-        Destroy(gameObject);
+        // Destroy(gameObject);
     }
     
     // 적 AI (간단한 예시)
@@ -468,7 +508,8 @@ public class Unit : MonoBehaviour
 
     public void PlayAnimation(string attack)
     {
-        animator.Play(attack);
+        // animator.Play(attack);
+        animator.SetTrigger(attack);
     }
 
     public void SetDirection(int dir)
@@ -483,5 +524,31 @@ public class Unit : MonoBehaviour
         Vector3 scaleui =charStatusUI.transform.localScale;
         scaleui .x = Mathf.Abs(scaleui.x) * direction;
         charStatusUI.transform.localScale = scaleui;
+    }
+
+    public void SetBattleMode(UnitMode unitBattleMode)
+    {
+        stats.unitMode = unitBattleMode;
+
+        for (int i = 0; i < battleMode.Length; i++)
+        {
+            if ((int)stats.unitMode == i)
+            {
+                battleMode[i].gameObject.SetActive(true);
+            }
+            else
+            {
+                battleMode[i].gameObject.SetActive(false);
+            }
+        }
+    }
+
+    public bool IsHalfHealth()
+    {
+        if (CurrentHealth <= MaxHealth / 2)
+        {
+            return true;
+        }
+        return false;
     }
 }

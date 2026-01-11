@@ -58,7 +58,7 @@ namespace Combat
                     {
                         foreach (Unit unitEnermy in allEnemyUnits)
                         {
-                            if (unitEnermy != null)
+                            if (unitEnermy != null && unitEnermy.playerUnit == false)
                             {
                                 allPlayerUnits[i].targetUnit = unitEnermy;
                                 EnermyContact(allPlayerUnits[i], unitEnermy);
@@ -79,7 +79,7 @@ namespace Combat
                     {
                         foreach (Unit unitPlayer in allPlayerUnits)
                         {
-                            if (unitPlayer != null)
+                            if (unitPlayer != null && unitPlayer.playerUnit)
                             {
                                 allEnemyUnits[i].targetUnit = unitPlayer;
                                 EnermyContact(allEnemyUnits[i], unitPlayer);
@@ -91,34 +91,22 @@ namespace Combat
             }
         }
 
-        public void StartCombat()
+        public void AttackMode()
         {
-            
-            
-            // 전투 시작 로직 구현
-            Debug.Log("전투 시작!");
-            // 예시: 첫 번째 플레이어 유닛과 첫 번째 적 유닛 간 전투
-            if (allPlayerUnits.Length > 0 && allEnemyUnits.Length > 0)
+            for (int i = 0; i < allPlayerUnits.Length; i++)
             {
-                for (int i = 0; i < allPlayerUnits.Length; i++)
-                {
-                    if (allPlayerUnits[i] != null && allEnemyUnits[0] != null)
-                        EnermyContact(allPlayerUnits[i], allEnemyUnits[0]);
-              
-                }
-
-                for (int i = 0; i < allEnemyUnits.Length; i++)
-                {
-                    if (allEnemyUnits[i] != null && allPlayerUnits[0] != null)
-                    {
-                        EnermyContact(allEnemyUnits[i], allPlayerUnits[0]); 
-                        
-                    }
-                }
-                
+                allPlayerUnits[i].SetBattleMode(UnitMode.Attack);
             }
         }
 
+        public void DefenceMode()
+        {
+            for (int i = 0; i < allPlayerUnits.Length; i++)
+            {
+                allPlayerUnits[i].SetBattleMode(UnitMode.Defence);
+            }
+
+        }
         /// <summary>
         /// 씬에 존재하는 모든 유닛을 찾아서 플레이어/적군으로 분류
         /// </summary>

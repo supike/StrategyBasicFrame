@@ -18,7 +18,7 @@ public class StatusEffect
     }
     
     public StatusType type;
-    public int duration;        // 지속 턴 수
+    public int duration;        // 지속 턴 수(턴은 라운드로)
     public int power;           // 효과 강도
     public Unit afflictedUnit;
 }
@@ -52,7 +52,7 @@ public class StatusEffectManager: MonoBehaviour
             };
             
             activeEffects.Add(newEffect);
-            //OnStatusEffectApplied(unit, type);
+            OnStatusEffectApplied(unit, type);
         }
         
         CombatEventSystem.Instance.TriggerEvent(new CombatEvent
@@ -63,47 +63,48 @@ public class StatusEffectManager: MonoBehaviour
         });
     }
     
-    // public void ProcessStatusEffects(Unit unit)
-    // {
-    //     List<StatusEffect> unitEffects = activeEffects.FindAll(e => e.afflictedUnit == unit);
-    //     
-    //     foreach (StatusEffect effect in unitEffects)
-    //     {
-    //         switch (effect.type)
-    //         {
-    //             case StatusEffect.StatusType.Poison:
-    //                 unit.TakeDamage(effect.power, DamageType.Poison);
-    //                 break;
-    //                 
-    //             case StatusEffect.StatusType.Burn:
-    //                 unit.TakeDamage(effect.power * 2, DamageType.Magical);
-    //                 break;
-    //         }
-    //         
-    //         // 지속시간 감소
-    //         effect.duration--;
-    //         
-    //         if (effect.duration <= 0)
-    //         {
-    //             RemoveStatusEffect(effect);
-    //         }
-    //     }
-    // }
-    //
-    // void OnStatusEffectApplied(Unit unit, StatusEffect.StatusType type)
-    // {
-    //     switch (type)
-    //     {
-    //         case StatusEffect.StatusType.Stun:
-    //             unit.IsStunned = true;
-    //             break;
-    //             
-    //         case StatusEffect.StatusType.Slow:
-    //             unit.IsSlowed = true;
-    //             unit.stats.movement = Mathf.Max(1, unit.stats.movement / 2);
-    //             break;
-    //     }
-    // }
+    // todo 상태 효과를 적용하자 2026/1/11
+    public void ProcessStatusEffects(Unit unit)
+    {
+        List<StatusEffect> unitEffects = activeEffects.FindAll(e => e.afflictedUnit == unit);
+        
+        foreach (StatusEffect effect in unitEffects)
+        {
+            switch (effect.type)
+            {
+                case StatusEffect.StatusType.Poison:
+                    unit.TakeDamage(effect.power);
+                    break;
+                    
+                case StatusEffect.StatusType.Burn:
+                    unit.TakeDamage(effect.power * 2);
+                    break;
+            }
+            
+            // 지속시간 감소
+            effect.duration--;
+            
+            if (effect.duration <= 0)
+            {
+                RemoveStatusEffect(effect);
+            }
+        }
+    }
+    
+    void OnStatusEffectApplied(Unit unit, StatusEffect.StatusType type)
+    {
+        switch (type)
+        {
+            case StatusEffect.StatusType.Stun:
+                unit.IsStunned = true;
+                break;
+                
+            case StatusEffect.StatusType.Slow:
+                unit.IsSlowed = true;
+                unit.stats.movement = Mathf.Max(1, unit.stats.movement / 2);
+                break;
+        }
+    }
     
     void RemoveStatusEffect(StatusEffect effect)
     {

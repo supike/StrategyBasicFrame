@@ -38,11 +38,23 @@ public class CombatSequence : MonoBehaviour
         Unit attacker = action.attacker;
         Unit defender = action.defender;
 
-        
+
+        bool endCombat = false;
+
         // 근거리 공격 범위 확인 및 이동
-        // if (!IsAdjacent(attacker, defender))
         while (!IsAdjacent(attacker, defender))
         {
+            // 먼저 근처 주변 적이 있는지 확인. 없으면 기존 목표 적을 정보 확인한다.
+            Unit newEnermy = FindNearestPlayerUnit(attacker);
+            if (newEnermy != null && newEnermy != defender)
+            {
+                // 적 타겟팅 변경
+                QueueCombatAction(new CombatAction(){attacker = attacker, defender = newEnermy});
+                endCombat = true;
+                break;
+            }
+            
+            
             Debug.Log($"{attacker.name} is not adjacent to {defender.name}. Moving closer...");
             
             // 방어자에게 가장 가까운 인접 타일 찾기
@@ -50,9 +62,16 @@ public class CombatSequence : MonoBehaviour
             
             if (targetTile != null /*&& attacker.CanMove()*/)
             {
-                // 이동 애니메이션 실행
-                yield return StartCoroutine(attacker.MoveTo(targetTile));
-                yield return new WaitForSeconds(0.0f);
+                if (attacker.stats.unitMode == UnitMode.Normal || attacker.stats.unitMode == UnitMode.Attack)
+                {
+                    // 이동 애니메이션 실행
+                    yield return StartCoroutine(attacker.MoveTo(targetTile));
+                    // yield return new WaitForSeconds(1f);
+                }
+                else if (attacker.stats.unitMode == UnitMode.Defence)
+                {
+                    yield return new WaitForSeconds(1f);
+                }
             }
             else
             {
@@ -61,20 +80,31 @@ public class CombatSequence : MonoBehaviour
             }
         }
 
-        bool endCombat = false;
+        // 전투 로직
         while (!endCombat)
         {
+            // 상태 상태 체크
             if (defender.isMoving)
             {
                 yield return new WaitForSeconds(0.1f);
                 continue;
             }
-                
-            
+
+            // 나의 상태 체크 
+            if (attacker.IsHalfHealth())
+            {
+                attacker.SetBattleMode(UnitMode.Defence);
+            }
+
             // 공격 준비 쿨 타임을 기다림`
             yield return attacker.PrepareForAttack();
-        
-            DamagePopUpGenerator.Instance.CreateDamagePopUp(attacker.transform.position, "Attack!", DamageType.True);
+            
+            if (!defender.IsAlive || defender == null || attacker.targetUnit == null)
+            {
+                yield break;
+            }
+            
+            //DamagePopUpGenerator.Instance.CreateDamagePopUp(attacker.transform.position, "Attack!", DamageType.True);
             // 1. 공격 애니메이션 시작
             attacker.PlayAnimation("Attack");
             CombatEventSystem.Instance.TriggerEvent(new CombatEvent
@@ -109,7 +139,7 @@ public class CombatSequence : MonoBehaviour
             );
         
             // 4. 데미지 적용
-            defender.TakeDamage(damage);
+            bool isAlive = defender.TakeDamage(damage);
         
             // 5. 데미지 이벤트 발생
             CombatEventSystem.Instance.TriggerEvent(new CombatEvent
@@ -120,15 +150,27 @@ public class CombatSequence : MonoBehaviour
                 damage = damage,
                 message = $"{attacker.name} dealt {damage} damage to {defender.name}!"
             });
-        
-            // 6. 피격 애니메이션
-            defender.PlayAnimation("Hit");
-        
-            yield return new WaitForSeconds(0.3f);
+
+            if (isAlive)
+            {
+                // 6. 피격 애니메이션
+                defender.PlayAnimation("Hit");
+                // yield return new WaitForSeconds(0.3f);
+            }
+            else
+            {
+                defender.PlayAnimation("Die");
+                yield return new WaitForSeconds(1f);
+                Destroy(defender.gameObject);
+                attacker.targetUnit = null;
+            }
+
             // 사망 확인, 전투 종료 판정
             endCombat = defender.CurrentHealth <= 0;
             
         }
+        
+        
         // 0. 전투 준비 (공격 속도에 따른 대기 시간 등)
 
         //
@@ -169,6 +211,8 @@ public class CombatSequence : MonoBehaviour
     
     /// <summary>
     /// 두 유닛이 인접한지 확인 (헥사곤 그리드 기준)
+    /// 처음부터 고정된 두 유닛이 인접한지를 확인.
+    /// 더 인접한 다른 유닛이 있으면 타겟으로 변경.
     /// </summary>
     bool IsAdjacent(Unit unit1, Unit unit2)
     {
@@ -184,6 +228,13 @@ public class CombatSequence : MonoBehaviour
             {
                 return true;
             }
+            
+            // if (cusTile.OccupyingUnit != null)
+            // {
+            //     // 다른 인접한 유닛이 있으면 목표 변경
+            //     unit2 = cusTile.OccupyingUnit;
+            //     return true;
+            // }
         }
 
         return false;
@@ -236,6 +287,11 @@ public class CombatSequence : MonoBehaviour
             // }
         // }
         
+        // if (closestTile != defender.CurrentTile)
+        // {
+        //     return FindClosestAdjacentTile(, defender);
+        // }
+        
         return closestTile;
     }
     
@@ -272,6 +328,25 @@ public class CombatSequence : MonoBehaviour
                       Mathf.Abs(defender.CurrentTile.Y - attacker.CurrentTile.Y);
         
         return distance <= defender.unitData.attackRange;
+    }
+    
+    public Unit FindNearestPlayerUnit(Unit unit1)
+    {
+        Unit nearestUnit = null;
+        float minDistance = float.MaxValue;
+
+        List<TileCustomWithEvent> neighbors = GridManager.Instance.GetNeighbors(new Vector3Int(unit1.CurrentTile.X, unit1.CurrentTile.Y));
+
+        foreach (TileCustomWithEvent cusTile in neighbors)
+        {
+            if (cusTile.OccupyingUnit != null && cusTile.OccupyingUnit.playerUnit != unit1.playerUnit)
+            {
+                // 다른 인접한 유닛이 있으면 목표 변경
+                return cusTile.OccupyingUnit;
+            }
+        }
+    
+        return null;
     }
 }
 
