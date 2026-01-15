@@ -225,9 +225,9 @@ public class Unit : MonoBehaviour
     public IEnumerator PrepareForAttack()
     {
         // 타겟 유닛이 없으면 즉시 정지
-        if (!targetUnit.IsAlive || targetUnit == null)
+        if (targetUnit == null || !targetUnit.IsAlive)
         {
-            Debug.LogWarning($"[{UnitName}] targetUnit is null. PrepareForAttack stopped.");
+            Debug.LogWarning($"[{UnitName}] targetUnit is null or not alive. PrepareForAttack stopped.");
             yield break;
         }
 
@@ -263,16 +263,11 @@ public class Unit : MonoBehaviour
     // }
     public void Initialize(TileCustomWithEvent startTile)
     {   
-        CurrentTile = Instantiate(startTile);
-        CurrentTile.Initialize(startTile.X, startTile.Y, true);
-
+        // GridManager의 실제 타일 참조 사용 (Instantiate 사용 금지)
+        CurrentTile = GridManager.Instance.GetTileAtCellPosition(new Vector3Int(startTile.X, startTile.Y, 0));
         CurrentTile.SetOccupied(this);
         
-        // GridManager에 유닛 등록
-        GridManager.Instance.GetTileAtCellPosition(new Vector3Int(startTile.X, startTile.Y, 0)).OccupyingUnit = this;
-        
         Debug.Log("Tile Type is: " + CurrentTile.TileType);
-
     }
     
     public void ResetTurnActions()
@@ -288,43 +283,37 @@ public class Unit : MonoBehaviour
     {
         List<TileCustomWithEvent> movableTiles = new List<TileCustomWithEvent>();
         Queue<TileCustomWithEvent> queue = new Queue<TileCustomWithEvent>();
-        HashSet<Vector2Int> visited = new HashSet<Vector2Int>();
+        Dictionary<Vector2Int, int> visitedWithCost = new Dictionary<Vector2Int, int>();
         
         queue.Enqueue(CurrentTile);
-        visited.Add(CurrentTile.GridPosition);
-        CurrentTile.GCost = 0;
+        visitedWithCost[CurrentTile.GridPosition] = 0;
         
         while (queue.Count > 0)
         {
             TileCustomWithEvent current = queue.Dequeue();
+            int currentCost = visitedWithCost[current.GridPosition];
+            
             Vector3Int currentCell = new Vector3Int(current.X, current.Y, 0);
 
             foreach (TileCustomWithEvent neighbor in GridManager.Instance.GetNeighbors(currentCell))
             {
-                // if (visited.Contains(neighbor.GridPosition)) continue;
+                // 이미 방문했으면 스킵
+                if (visitedWithCost.ContainsKey(neighbor.GridPosition))
+                    continue;
 
-                if (neighbor.OccupyingUnit == null)
+                // 다른 유닛이 점유 중이면 스킵
+                if (neighbor.OccupyingUnit != null)
+                    continue;
+
+                int newCost = currentCost + 1;
+
+                // 이동 범위 내면 추가
+                if (newCost <= MovementRange)
                 {
                     movableTiles.Add(neighbor);
-                    
+                    visitedWithCost[neighbor.GridPosition] = newCost;
+                    queue.Enqueue(neighbor);
                 }
-                
-                // 점유 여부 확인
-                // if (neighbor.OccupyingUnit != null) continue;
-                //
-                // int newCost = current.GCost + 1;
-                //
-                // if (newCost <= MovementRange)
-                // {
-                //     // BFS 탐색용 복사본 생성
-                //     TileCustomWithEvent neighborCopy = Instantiate(neighbor);
-                //     neighborCopy.Initialize(neighbor.X, neighbor.Y, true);
-                //     neighborCopy.GCost = newCost;
-                //     
-                //     movableTiles.Add(neighborCopy);
-                //     queue.Enqueue(neighborCopy);
-                //     visited.Add(neighborCopy.GridPosition);
-                // }
             }
         }
         
@@ -367,9 +356,8 @@ public class Unit : MonoBehaviour
             SetDirection(-1); // 왼쪽
         }
 
-        // 현재 타일 정보 업데이트
-        CurrentTile.Initialize(targetTile.GridPosition.x, targetTile.GridPosition.y, false);
-        CurrentTile.SetOccupied(this);
+        // 현재 타일 정보 업데이트 - GridManager의 실제 타일을 참조
+        CurrentTile = GridManager.Instance.GetTileAtCellPosition(new Vector3Int(targetTile.X, targetTile.Y, 0));
         
         // 이동 애니메이션
         yield return StartCoroutine(MovePlayer(centerPosition));
@@ -427,28 +415,51 @@ public class Unit : MonoBehaviour
             // 공격 범위 내면 공격
             if (IsInAttackRange(target))
             {
-                Attack(target);
+                targetUnit = target;
+                yield return StartCoroutine(PrepareForAttack());
             }
             else
             {
-                // 이동
-                List<TileCustomWithEvent> movableTiles = GetMovableTiles();
-                TileCustomWithEvent closestTile = GetClosestTileToTarget(movableTiles, target.CurrentTile);
+                // A* 경로 찾기로 목표까지의 최단 경로 계산
+                TileCustomWithEvent nextTile = FindPathToTarget(target.CurrentTile);
                 
-                if (closestTile != null)
+                if (nextTile != null && CanMove())
                 {
-                    yield return StartCoroutine(MoveTo(closestTile));
+                    yield return StartCoroutine(MoveTo(nextTile));
+                    hasMovedThisTurn = true;
                 }
             }
         }
         
-        yield return new WaitForSeconds(1f);
+        yield return new WaitForSeconds(0.5f);
     }
     
     Unit FindNearestPlayerUnit()
     {
-        // 구현 생략
-        return null;
+        Unit nearestUnit = null;
+        int minDistance = int.MaxValue;
+
+        // 씬의 모든 Unit 찾기
+        Unit[] allUnits = FindObjectsByType<Unit>(FindObjectsSortMode.None);
+
+        foreach (Unit unit in allUnits)
+        {
+            // 플레이어 유닛이고, 살아있으며, 자신이 아닌 경우만 고려
+            if (unit.playerUnit && unit.IsAlive && unit != this)
+            {
+                // 맨해튼 거리 계산
+                int distance = Mathf.Abs(CurrentTile.X - unit.CurrentTile.X) +
+                              Mathf.Abs(CurrentTile.Y - unit.CurrentTile.Y);
+
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    nearestUnit = unit;
+                }
+            }
+        }
+
+        return nearestUnit;
     }
     
     bool IsInAttackRange(Unit target)
@@ -460,8 +471,131 @@ public class Unit : MonoBehaviour
     
     TileCustomWithEvent GetClosestTileToTarget(List<TileCustomWithEvent> tiles, TileCustomWithEvent targetTile)
     {
-        // 구현 생략
-        return null;
+        return FindPathToTarget(targetTile);
+    }
+
+    /// <summary>
+    /// A* 알고리즘을 사용하여 목표 타일까지의 경로를 찾고 이동할 첫 번째 타일 반환
+    /// </summary>
+    private TileCustomWithEvent FindPathToTarget(TileCustomWithEvent targetTile)
+    {
+        List<PathNode> openSet = new List<PathNode>();
+        HashSet<Vector2Int> closedSet = new HashSet<Vector2Int>();
+        Dictionary<Vector2Int, PathNode> allNodes = new Dictionary<Vector2Int, PathNode>();
+
+        Vector2Int startPos = CurrentTile.GridPosition;
+        Vector2Int targetPos = targetTile.GridPosition;
+
+        PathNode startNode = new PathNode(CurrentTile, null, 0, Heuristic(startPos, targetPos));
+        openSet.Add(startNode);
+        allNodes[startPos] = startNode;
+
+        while (openSet.Count > 0)
+        {
+            // F 비용이 가장 낮은 노드 찾기
+            int current = 0;
+            for (int i = 1; i < openSet.Count; i++)
+            {
+                if (openSet[i].F < openSet[current].F)
+                {
+                    current = i;
+                }
+            }
+
+            PathNode currentNode = openSet[current];
+
+            // 목표에 도달했으면 경로 역추적
+            if (currentNode.Tile.GridPosition == targetPos)
+            {
+                return GetFirstStepToTarget(currentNode);
+            }
+
+            openSet.RemoveAt(current);
+            closedSet.Add(currentNode.Tile.GridPosition);
+
+            // 인접한 타일 탐색
+            Vector3Int cellPos = new Vector3Int(currentNode.Tile.X, currentNode.Tile.Y, 0);
+            foreach (TileCustomWithEvent neighbor in GridManager.Instance.GetNeighbors(cellPos))
+            {
+                Vector2Int neighborPos = neighbor.GridPosition;
+
+                // 이미 방문한 타일이거나 다른 유닛이 점유 중이면 스킵
+                if (closedSet.Contains(neighborPos) || (neighbor.OccupyingUnit != null && neighbor.OccupyingUnit != this))
+                {
+                    continue;
+                }
+
+                // 새로운 경로의 G 비용 (시작점부터의 거리)
+                float newG = currentNode.G + 1;
+
+                // 이미 처리된 노드인 경우
+                if (allNodes.ContainsKey(neighborPos))
+                {
+                    PathNode existingNode = allNodes[neighborPos];
+                    // 더 좋은 경로를 찾으면 업데이트
+                    if (newG < existingNode.G)
+                    {
+                        existingNode.Parent = currentNode;
+                        existingNode.G = newG;
+                        existingNode.H = Heuristic(neighborPos, targetPos);
+                    }
+                }
+                else
+                {
+                    // 새로운 노드 생성
+                    float h = Heuristic(neighborPos, targetPos);
+                    PathNode newNode = new PathNode(neighbor, currentNode, newG, h);
+                    openSet.Add(newNode);
+                    allNodes[neighborPos] = newNode;
+                }
+            }
+        }
+
+        return null;  // 경로를 찾지 못한 경우
+    }
+
+    /// <summary>
+    /// 휴리스틱 함수 (맨해튼 거리)
+    /// </summary>
+    private float Heuristic(Vector2Int from, Vector2Int to)
+    {
+        return Mathf.Abs(from.x - to.x) + Mathf.Abs(from.y - to.y);
+    }
+
+    /// <summary>
+    /// 경로를 역추적하여 이동할 첫 번째 타일 반환
+    /// </summary>
+    private TileCustomWithEvent GetFirstStepToTarget(PathNode endNode)
+    {
+        PathNode current = endNode;
+
+        // 시작 노드의 자식이 될 때까지 역추적
+        while (current.Parent != null && current.Parent.Parent != null)
+        {
+            current = current.Parent;
+        }
+
+        return current.Tile;
+    }
+
+    /// <summary>
+    /// A* 경로 찾기용 노드 클래스
+    /// </summary>
+    private class PathNode
+    {
+        public TileCustomWithEvent Tile { get; set; }
+        public PathNode Parent { get; set; }
+        public float G { get; set; }  // 시작점부터의 비용
+        public float H { get; set; }  // 목표점까지의 예상 비용
+        public float F => G + H;      // 전체 비용
+
+        public PathNode(TileCustomWithEvent tile, PathNode parent, float g, float h)
+        {
+            Tile = tile;
+            Parent = parent;
+            G = g;
+            H = h;
+        }
     }
     
     /// <summary>
