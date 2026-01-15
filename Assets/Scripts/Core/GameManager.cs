@@ -10,6 +10,18 @@ namespace Core
         
         public static GameManager Instance { get; private set; }
         // Start is called once before the first execution of Update after the MonoBehaviour is created
+        
+        void Awake()
+        {
+            if (Instance != null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
         void Start()
         {
             productionTimer = 0;
