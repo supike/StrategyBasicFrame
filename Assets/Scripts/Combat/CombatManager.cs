@@ -16,6 +16,7 @@ namespace Combat
         // 모든 유닛 리스트
         private Unit[] allPlayerUnits;
         private Unit[] allEnemyUnits;
+        private bool isPaused = false;
 
         public Unit[] GetAllPlayerUnits() => allPlayerUnits;
         public Unit[] GetAllEnemyUnits() => allEnemyUnits;
@@ -47,6 +48,12 @@ namespace Combat
         // private bool playerAttacking = false;
         void Update()
         {
+            // ESC 키로 일시 정지 토글
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                isPaused = !isPaused;
+                PauseAllUnits(isPaused);
+            }
 
             // player 공격 로직
             for (int i = 0; i < allPlayerUnits.Length; i++)
@@ -162,7 +169,11 @@ namespace Combat
         /// <param name="pause">true일 경우 정지, false일 경우 재개</param>
         public void PauseAllUnits(bool pause)
         {
-            PauseUI.SetActive(pause);
+            isPaused = pause;
+            if (PauseUI != null)
+            {
+                PauseUI.SetActive(pause);
+            }
             
             if (allPlayerUnits != null)
             {
