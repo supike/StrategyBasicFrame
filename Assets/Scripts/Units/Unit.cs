@@ -49,105 +49,83 @@ public class UnitStats
 }
 public class Unit : MonoBehaviour
 {
-    [SerializeField] public  bool playerUnit = false;
-    [SerializeField] public  UnitDataSO unitData;
+    #region 기본 데이터
+    [SerializeField] public bool playerUnit = false;
+    [SerializeField] public UnitDataSO unitData;
     [SerializeField] public UnitStats stats;
     [SerializeField] private Tilemap tilemap;
-    [SerializeField] private Animator animator;
-    [SerializeField] private Image attackCoolTimeImage;
-    [SerializeField] private TMPro.TextMeshProUGUI healthText;
-    [SerializeField] private Image healthSlider;
-    [SerializeField] private TMPro.TextMeshProUGUI name;
-    public Unit targetUnit{ get; set; }
+    
+    public Unit targetUnit { get; set; }
     public string UnitName => unitData.unitName;
-    public int CurrentHealth { get; private set; }  //체력
-    public int CurrentStamina { get; private set; } //지구력: 행동 후 감소, 휴식 시 회복
-    public int CurrentMorale { get; private set; }  //사기: 높으면 공격적, 낮으면 방어적
-    private int MaxHealth => unitData.maxHealth;
+    public int CurrentHealth { get; private set; }
+    public int CurrentStamina { get; private set; }
+    public int CurrentMorale { get; private set; }
+    public int MaxHealth => unitData.maxHealth;
     public int AttackPower => unitData.attack;
     public int MovementRange => unitData.movementRange;
     public bool IsAlive => CurrentHealth > 0;
-    
+    #endregion
+
+    #region 타일 및 이동
     public TileCustomWithEvent CurrentTile { get; private set; }
-    
-    private bool hasMovedThisTurn = false;
-    private bool hasAttackedThisTurn = false;
-    public bool isMoving = false;
+    private bool hasMovedThisTurn;
+    private bool hasAttackedThisTurn;
+    public bool isMoving;
+    [SerializeField] private float moveSpeed = 5f;
+    #endregion
+
+    #region 컴포넌트
+    private Animator animator;
+    private UnitUI unitUI;
+    #endregion
+
+    #region 상태
+    [SerializeField] private int direction = 1;
+    private bool readyForAttack;
+    private bool isPaused;
     private bool isAttacking;
-    [SerializeField] private int direction;     // 1: 오른쪽, -1: 왼쪽
-    
-    
-    [SerializeField] private float moveSpeed = 5f; // 이동 속도 (units per second)
-    public System.Action<Unit> OnReadyForAttack;
-
-    private bool readyForAttack = false;
-    private bool isPaused = false;
-    private GameObject charStatusUI ;
-    
-    public GameObject playerUI;
-    
-    public GameObject[] battleMode;
-
     public bool IsStunned;
     public bool IsSlowed;
+    #endregion
+
+    #region 이벤트
+    public System.Action<Unit> OnReadyForAttack;
+    #endregion
     
 
     private void Awake()
     {
         animator = GetComponent<Animator>();
+        unitUI = GetComponent<UnitUI>();
+        
+        if (unitUI == null)
+        {
+            Debug.LogWarning($"[Unit] {gameObject.name}: UnitUI 컴포넌트가 없습니다. UI 기능이 제한될 수 있습니다.");
+        }
+        
         CurrentHealth = MaxHealth;
-        charStatusUI = this.transform.Find("CharStatusUI").gameObject;
-
-        // playerUI = GetComponentIndex();
-        // Combat.CombatEventSystem.Instance.OnCombatEvent += HandleCombatEvent;
     }
 
     void Start()
     {
-        // 유닛 초기화
-        name.text = UnitName;
-        healthText.text = $"{CurrentHealth}";
-        healthSlider.fillAmount = (float)CurrentHealth / MaxHealth;
+        // UI 초기화
+        if (unitUI != null)
+        {
+            unitUI.Initialize(UnitName, unitData.icon);
+            unitUI.UpdateHealthUI(CurrentHealth, MaxHealth);
+            unitUI.SetBattleModeIcon(UnitMode.Normal);
+        }
         
-        SpriteRenderer sr = playerUI.GetComponentInChildren<SpriteRenderer>();
-        sr.sprite = unitData.icon;
-        
-        battleMode[0].gameObject.SetActive(true);       
         SetBattleMode(UnitMode.Normal);
         
-        /////////////////////ToDo Test, Delete Later//////////////////
-        /// 로직 테스트용 목적으로 구현하지만 나중에는 구조적으로 분리하자.
+        // 타일 초기화
         Vector3Int cellPosition = tilemap.WorldToCell(transform.position);
-        // Debug.Log($"[Unit Start] cellPosition: {cellPosition}");
+        TileBase curTile = Instantiate(tilemap.GetTile<TileBase>(cellPosition));
         
-        TileBase curTile = Instantiate(tilemap.GetTile<TileBase>(cellPosition)) ;
-        // Debug.Log($"[Unit Start] curTile type: {curTile?.GetType().Name}, curTile: {curTile}");
-        
-        if (curTile is TileCustomWithEvent)
+        if (curTile is TileCustomWithEvent tileWithEvent)
         {
             Debug.Log("TileCustomWithEvent found");
-            TileCustomWithEvent tileWithEvent = curTile as TileCustomWithEvent;
             tileWithEvent.Initialize(cellPosition.x, cellPosition.y, false);
-            
-            // Initialize 전 좌표 출력
-            // Debug.Log($"[Before Initialize] Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
-            
-            // 타일의 좌표를 실제 셀 좌표로 초기화
-            //tileWithEvent.Initialize(cellPosition.x, cellPosition.y, true);
-            
-            // Initialize 후 좌표 출력
-            // Debug.Log($"[After Initialize] cellPosition: ({cellPosition.x}, {cellPosition.y}) -> Tile coords: ({tileWithEvent.X}, {tileWithEvent.Y})");
-            
-            // 검증: 좌표가 일치하는지 확인
-            if (tileWithEvent.X == cellPosition.x && tileWithEvent.Y == cellPosition.y)
-            {
-                // Debug.Log($"✓ 좌표 동기화 성공!");
-            }
-            else
-            {
-                // Debug.LogWarning($"✗ 좌표 불일치! cellPosition: ({cellPosition.x}, {cellPosition.y}), Tile: ({tileWithEvent.X}, {tileWithEvent.Y})");
-            }
-            
             Initialize(tileWithEvent);
         }
         else
@@ -231,9 +209,8 @@ public class Unit : MonoBehaviour
             yield break;
         }
 
-        attackCoolTimeImage.fillAmount = 0f;
-        // readyForAttack = true;
-        // yield return StartCoroutine(RunAttackCooldown());
+        unitUI?.UpdateCoolTimeUI(0f);
+        
         float elapsedTime = 0f;
         while (elapsedTime < stats.attackSpeed)
         {
@@ -241,7 +218,7 @@ public class Unit : MonoBehaviour
             if (targetUnit == null || !IsAlive)
             {
                 Debug.LogWarning($"[{UnitName}] targetUnit disappeared during PrepareForAttack. Stopping.");
-                attackCoolTimeImage.fillAmount = 0f;
+                unitUI?.UpdateCoolTimeUI(0f);
                 yield break;
             }
 
@@ -250,11 +227,13 @@ public class Unit : MonoBehaviour
                 yield return null;
                 continue;
             }
-            attackCoolTimeImage.fillAmount = elapsedTime / stats.attackSpeed;
+            
+            unitUI?.UpdateCoolTimeUI(elapsedTime / stats.attackSpeed);
             elapsedTime += Time.deltaTime;
             yield return null;
         }
-        attackCoolTimeImage.fillAmount = 1f;
+        
+        unitUI?.UpdateCoolTimeUI(1f);
         OnReadyForAttack?.Invoke(this);
     }
 
@@ -384,11 +363,12 @@ public class Unit : MonoBehaviour
     {
         CurrentHealth -= damage;
         CurrentHealth = Mathf.Max(0, CurrentHealth);
-        healthText.text = $"{CurrentHealth}";
-        healthSlider.fillAmount = (float)CurrentHealth / MaxHealth;
+        
+        // UI 업데이트
+        unitUI?.UpdateHealthUI(CurrentHealth, MaxHealth);
+        
         DamagePopUpGenerator.Instance.CreateDamagePopUp(transform.position, damage.ToString());
         
-        // PlayAnimation("Hit");
         if (!IsAlive)
         {
             Die();
@@ -532,31 +512,19 @@ public class Unit : MonoBehaviour
     {
         direction = dir >= 0 ? 1 : -1;
 
-        // body가 애니메이터에 의해 스케일이 덮어쓰이지 않는 객체여야 함.
-        Vector3 scale =this.transform.localScale;
+        // 스프라이트 방향 변경
+        Vector3 scale = transform.localScale;
         scale.x = Mathf.Abs(scale.x) * direction;
-        this.transform.localScale = scale;
+        transform.localScale = scale;
         
-        Vector3 scaleui =charStatusUI.transform.localScale;
-        scaleui .x = Mathf.Abs(scaleui.x) * direction;
-        charStatusUI.transform.localScale = scaleui;
+        // UI 방향 변경
+        unitUI?.SetUIDirection(direction);
     }
 
     public void SetBattleMode(UnitMode unitBattleMode)
     {
         stats.unitMode = unitBattleMode;
-
-        for (int i = 0; i < battleMode.Length; i++)
-        {
-            if ((int)stats.unitMode == i)
-            {
-                battleMode[i].gameObject.SetActive(true);
-            }
-            else
-            {
-                battleMode[i].gameObject.SetActive(false);
-            }
-        }
+        unitUI?.SetBattleModeIcon(unitBattleMode);
     }
 
     public bool IsHalfHealth()
