@@ -1,26 +1,26 @@
-using System;
 using UnityEngine;
-using System.Collections.Generic;
+using Core;
 
 namespace Combat
 {
+    /// <summary>
+    /// 전투 상황을 관리하는 매니저 클래스
+    /// GameManager의 UnitManager를 통해 유닛들을 관리합니다.
+    /// </summary>
     public class CombatManager : MonoBehaviour
     {
-        static public CombatManager Instance { get; private set; }
+        public static CombatManager Instance { get; private set; }
+        
         private CombatSequence combatSequence;
-        private CombatEventSystem combatEventSystem;
-        [SerializeField]private Unit playerUnit;
-        [SerializeField]private Unit[] enermyUnits;
-        public GameObject PauseUI;
-        
-        // 모든 유닛 리스트
-        private Unit[] allPlayerUnits;
-        private Unit[] allEnemyUnits;
-        private bool isPaused = false;
+        private UnitManager unitManager;
+        private bool isPaused;
 
-        public Unit[] GetAllPlayerUnits() => allPlayerUnits;
-        public Unit[] GetAllEnemyUnits() => allEnemyUnits;
+        [SerializeField] private GameObject pauseUI;
+
+        public Unit[] GetAllPlayerUnits() => unitManager.GetPlayerUnits().ToArray();
+        public Unit[] GetAllEnemyUnits() => unitManager.GetEnemyUnits().ToArray();
         
+        #region 유니티 기본 함수
         private void Awake()
         {
             // Singleton 패턴
@@ -35,18 +35,15 @@ namespace Combat
             }
             
             combatSequence = GetComponent<CombatSequence>();
-            combatEventSystem = CombatEventSystem.Instance;
-            
         }
 
         private void Start()
         {
-            // 씬의 모든 유닛 찾기
-            FindAllUnits();
+            // GameManager에서 UnitManager 참조 가져오기
+            unitManager = GameManager.Instance.UnitManager;
         }
 
-        // private bool playerAttacking = false;
-        void Update()
+        private void Update()
         {
             // ESC 키로 일시 정지 토글
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -55,44 +52,61 @@ namespace Combat
                 PauseAllUnits(isPaused);
             }
 
-            // player 공격 로직
-            for (int i = 0; i < allPlayerUnits.Length; i++)
+            // 플레이어 유닛의 공격 로직
+            ProcessPlayerAttack();
+
+            // 적 유닛의 공격 로직
+            ProcessEnemyAttack();
+        }
+        #endregion
+
+        /// <summary>
+        /// 전투를 초기화합니다. GameManager 또는 SceneManager에서 호출합니다.
+        /// </summary>
+        public void InitializeCombat()
+        {
+            Debug.Log($"[CombatManager] 전투 초기화 - 플레이어 유닛 {unitManager.GetPlayerUnits().Count}개, 적 유닛 {unitManager.GetEnemyUnits().Count}개");
+        }
+
+        /// <summary>
+        /// 플레이어 유닛의 공격 로직 처리
+        /// </summary>
+        private void ProcessPlayerAttack()
+        {
+            if (unitManager == null || unitManager.GetEnemyUnits().Count == 0)
+                return;
+
+            foreach (Unit playerUnit in unitManager.GetPlayerUnits())
             {
-                if (allPlayerUnits[i] != null && allEnemyUnits.Length > 0)
+                if (playerUnit != null && playerUnit.targetUnit == null)
                 {
-                    // playerAttacking = true;
-                    if (allPlayerUnits[i].targetUnit == null)
+                    Unit target = unitManager.GetNearestEnemyUnit(playerUnit);
+                    if (target != null)
                     {
-                        foreach (Unit unitEnermy in allEnemyUnits)
-                        {
-                            if (unitEnermy != null && unitEnermy.playerUnit == false)
-                            {
-                                allPlayerUnits[i].targetUnit = unitEnermy;
-                                EnermyContact(allPlayerUnits[i], unitEnermy);
-                                break;
-                            }
-                        }
+                        playerUnit.targetUnit = target;
+                        EnermyContact(playerUnit, target);
                     }
                 }
             }
+        }
 
-            // Enermy 공격 로직
-            for (int i = 0; i < allEnemyUnits.Length; i++)
+        /// <summary>
+        /// 적 유닛의 공격 로직 처리
+        /// </summary>
+        private void ProcessEnemyAttack()
+        {
+            if (unitManager == null || unitManager.GetPlayerUnits().Count == 0)
+                return;
+
+            foreach (Unit enemyUnit in unitManager.GetEnemyUnits())
             {
-                if (allEnemyUnits[i] != null && allPlayerUnits.Length > 0)
+                if (enemyUnit != null && enemyUnit.targetUnit == null)
                 {
-                    // playerAttacking = false;
-                    if (allEnemyUnits[i].targetUnit == null)
+                    Unit target = unitManager.GetNearestPlayerUnit(enemyUnit);
+                    if (target != null)
                     {
-                        foreach (Unit unitPlayer in allPlayerUnits)
-                        {
-                            if (unitPlayer != null && unitPlayer.playerUnit)
-                            {
-                                allEnemyUnits[i].targetUnit = unitPlayer;
-                                EnermyContact(allEnemyUnits[i], unitPlayer);
-                                break;
-                            }
-                        }
+                        enemyUnit.targetUnit = target;
+                        EnermyContact(enemyUnit, target);
                     }
                 }
             }
@@ -100,56 +114,20 @@ namespace Combat
 
         public void AttackMode()
         {
-            for (int i = 0; i < allPlayerUnits.Length; i++)
-            {
-                allPlayerUnits[i].SetBattleMode(UnitMode.Attack);
-            }
+            unitManager.ForEachPlayerUnit(unit => unit.SetBattleMode(UnitMode.Attack));
         }
 
         public void DefenceMode()
         {
-            for (int i = 0; i < allPlayerUnits.Length; i++)
-            {
-                allPlayerUnits[i].SetBattleMode(UnitMode.Defence);
-            }
-
-        }
-        /// <summary>
-        /// 씬에 존재하는 모든 유닛을 찾아서 플레이어/적군으로 분류
-        /// </summary>
-        private void FindAllUnits()
-        {
-            // 씬의 모든 Unit 컴포넌트 찾기
-            Unit[] allUnits = FindObjectsOfType<Unit>();
-            
-            // playerUnit 필드로 구분
-            System.Collections.Generic.List<Unit> playerList = new System.Collections.Generic.List<Unit>();
-            System.Collections.Generic.List<Unit> enemyList = new System.Collections.Generic.List<Unit>();
-            
-            foreach (Unit unit in allUnits)
-            {
-                if (unit.playerUnit)
-                {
-                    playerList.Add(unit);
-                }
-                else
-                {
-                    enemyList.Add(unit);
-                }
-            }
-            
-            allPlayerUnits = playerList.ToArray();
-            allEnemyUnits = enemyList.ToArray();
-            
-            Debug.Log($"플레이어 유닛 {allPlayerUnits.Length}개, 적 유닛 {allEnemyUnits.Length}개 발견");
+            unitManager.ForEachPlayerUnit(unit => unit.SetBattleMode(UnitMode.Defence));
         }
 
-
+        
         /// <summary>
         /// 적과 아군 유닛이 접촉했을 때 전투를 시작하는 메서드
         /// </summary>
         /// <param name="attacker">공격의 주체자, 상호 각자가 공격자가 되야 한다.</param>
-        /// <param name="defender"></param>
+        /// <param name="defender">방어자</param>
         public void EnermyContact(Unit attacker, Unit defender)
         {
             CombatAction action = new CombatAction
@@ -160,7 +138,6 @@ namespace Combat
             };
 
             combatSequence.QueueCombatAction(action);
-            
         }
 
         /// <summary>
@@ -170,26 +147,12 @@ namespace Combat
         public void PauseAllUnits(bool pause)
         {
             isPaused = pause;
-            if (PauseUI != null)
+            if (pauseUI != null)
             {
-                PauseUI.SetActive(pause);
+                pauseUI.SetActive(pause);
             }
             
-            if (allPlayerUnits != null)
-            {
-                foreach (Unit unit in allPlayerUnits)
-                {
-                    if (unit != null) unit.SetPause(pause);
-                }
-            }
-
-            if (allEnemyUnits != null)
-            {
-                foreach (Unit unit in allEnemyUnits)
-                {
-                    if (unit != null) unit.SetPause(pause);
-                }
-            }
+            unitManager.ForEachAllUnits(unit => unit.SetPause(pause));
         }
     }
 }

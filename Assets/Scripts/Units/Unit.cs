@@ -112,7 +112,7 @@ public class Unit : MonoBehaviour
         SpriteRenderer sr = playerUI.GetComponentInChildren<SpriteRenderer>();
         sr.sprite = unitData.icon;
         
-        battleMode[0].gameObject.SetActive(true);
+        battleMode[0].gameObject.SetActive(true);       
         SetBattleMode(UnitMode.Normal);
         
         /////////////////////ToDo Test, Delete Later//////////////////
