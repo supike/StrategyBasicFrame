@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Core;
 
@@ -18,7 +19,9 @@ namespace Combat
         [SerializeField] private GameObject pauseUI;
 
         public Unit[] GetAllPlayerUnits() => unitManager.GetPlayerUnits().ToArray();
-        public Unit[] GetAllEnemyUnits() => unitManager.GetEnemyUnits().ToArray();
+        // public List<Unit> GetAllEnemyUnits() => unitManager.GetEnemyUnits().ToArray();
+        public List<Unit> GetAllEnemyUnits() => unitManager.GetEnemyUnits();
+        
         
         #region 유니티 기본 함수
         private void Awake()

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Combat;
 
 namespace Core
 {
@@ -36,6 +37,9 @@ namespace Core
         void Start()
         {
             productionTimer = 0;
+            // 테스트용 코드
+            UnitManager.SetPlayerUnits(CombatManager.Instance.GetAllEnemyUnits());
+            
         }
 
         // Update is called once per frame
