@@ -185,7 +185,7 @@ public class GridManager: MonoBehaviour
                         tileInstance.Initialize(x, y, true);
                         tileDict[cellPosition] = tileInstance;
                     }
-                    Debug.Log($"Tile initialized at ({x}, {y})");
+                    // Debug.Log($"Tile initialized at ({x}, {y})");
                 }
             }
         }

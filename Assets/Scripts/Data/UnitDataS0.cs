@@ -1,15 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
-public enum UnitClass
-{
-    Fighter,      // 근접 DPS
-    Archer,       // 원거리 DPS
-    Cavalry,      // 기동형
-    Defender,     // 탱커
-    Skirmisher,   // 유연형
-    Spiritualist  // 마법/지원
-}
+
 
 public enum UnitType
 {
@@ -28,9 +20,12 @@ public class UnitDataSO : ScriptableObject
 {
     [Header("Basic Info")]
     public string unitName;
-    public UnitClass unitClass;
     public UnitType unitType;
     public Sprite icon;
+    
+    // [Header("Description")]
+    [TextArea(3, 10)]
+    public string description;
     //public GameObject prefab;
     
     [Header("Combat Stats")]
@@ -64,14 +59,7 @@ public class UnitDataSO : ScriptableObject
     public float forestMovementPenalty = 0.5f;  // 숲 이동 페널티
     public float mountainMovementPenalty = 2f;   // 산악 이동 페널티
     
-    [Header("Production Cost")]
-    public List<ResourceAmount> recruitmentCost;
-    public float productionTime = 5f;
-    
     //[Header("Special Abilities")]
     //public List<AbilitySO> abilities;
     
-    [Header("Description")]
-    [TextArea(3, 10)]
-    public string description;
 }

@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to Unity Editor",
+      "type": "vstuc",
+      "request": "attach",
+      "preLaunchTask": "Launch Unity Editor"
+    },
+    {
+      "name": "Attach to Unity Editor (Manual)",
+      "type": "vstuc",
+      "request": "attach"
+    }
+  ]
+}

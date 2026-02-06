@@ -34,7 +34,6 @@ namespace Combat
         
             // 스탯 증가
             unit.stats.maxHealth += growthRates.healthGrowth;
-            unit.stats.currentHealth = unit.stats.maxHealth;
             unit.stats.baseAttack += growthRates.attackGrowth;
             unit.stats.physicalDefense += growthRates.defenseGrowth;
         

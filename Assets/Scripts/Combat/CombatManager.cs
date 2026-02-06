@@ -11,18 +11,18 @@ namespace Combat
     public class CombatManager : MonoBehaviour
     {
         public static CombatManager Instance { get; private set; }
-        
+
         private CombatSequence combatSequence;
         private UnitManager unitManager;
         private bool isPaused;
 
         [SerializeField] private GameObject pauseUI;
 
-        public Unit[] GetAllPlayerUnits() => unitManager.GetPlayerUnits().ToArray();
+        public List<Unit> GetAllPlayerUnits() => unitManager.GetPlayerUnits();
         // public List<Unit> GetAllEnemyUnits() => unitManager.GetEnemyUnits().ToArray();
         public List<Unit> GetAllEnemyUnits() => unitManager.GetEnemyUnits();
-        
-        
+
+
         #region 유니티 기본 함수
         private void Awake()
         {
@@ -36,7 +36,7 @@ namespace Combat
                 Destroy(gameObject);
                 return;
             }
-            
+
             combatSequence = GetComponent<CombatSequence>();
         }
 
@@ -44,6 +44,13 @@ namespace Combat
         {
             // GameManager에서 UnitManager 참조 가져오기
             unitManager = GameManager.Instance.UnitManager;
+
+
+            // 플레이어 유닛의 공격 로직
+            // ProcessPlayerAttack();
+
+            // 적 유닛의 공격 로직
+            // ProcessEnemyAttack();
         }
 
         private void Update()
@@ -55,11 +62,6 @@ namespace Combat
                 PauseAllUnits(isPaused);
             }
 
-            // 플레이어 유닛의 공격 로직
-            ProcessPlayerAttack();
-
-            // 적 유닛의 공격 로직
-            ProcessEnemyAttack();
         }
         #endregion
 
@@ -74,7 +76,7 @@ namespace Combat
         /// <summary>
         /// 플레이어 유닛의 공격 로직 처리
         /// </summary>
-        private void ProcessPlayerAttack()
+        public void ProcessPlayerAttack()
         {
             if (unitManager == null || unitManager.GetEnemyUnits().Count == 0)
                 return;
@@ -125,7 +127,12 @@ namespace Combat
             unitManager.ForEachPlayerUnit(unit => unit.SetBattleMode(UnitMode.Defence));
         }
 
-        
+        public void RetreatMode()
+        {
+            unitManager.ForEachPlayerUnit(unit => unit.SetBattleMode(UnitMode.Retreat));
+        }
+
+
         /// <summary>
         /// 적과 아군 유닛이 접촉했을 때 전투를 시작하는 메서드
         /// </summary>
@@ -154,7 +161,7 @@ namespace Combat
             {
                 pauseUI.SetActive(pause);
             }
-            
+
             unitManager.ForEachAllUnits(unit => unit.SetPause(pause));
         }
     }

@@ -9,12 +9,14 @@ using TMPro;
 public class UnitUI : MonoBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private TextMeshProUGUI healthText;
-    [SerializeField] private Image healthSlider;
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private Image attackCoolTimeImage;
     [SerializeField] private GameObject playerUI;
     [SerializeField] private GameObject[] battleModeIcons;
+    [SerializeField] private TextMeshProUGUI healthText;
+    [SerializeField] private Image healthSlider;
+    [SerializeField] private Image staminaSlider;
+    [SerializeField] private Image balanceSlider;
     
     private GameObject charStatusUI;
     private Unit unit;
@@ -71,6 +73,23 @@ public class UnitUI : MonoBehaviour
         {
             attackCoolTimeImage.fillAmount = fillAmount;
         }
+    }
+
+    public void UpdateStaminaUI(float fillAmount)
+    {
+        if (staminaSlider != null)
+        {
+            staminaSlider.fillAmount = fillAmount;
+        }
+    }
+
+    public void UpdateBalanceUI(float fillAmount)
+    {
+        if (balanceSlider != null)
+        {
+            balanceSlider.fillAmount = fillAmount;
+        }
+        
     }
 
     /// <summary>

@@ -1,0 +1,26 @@
+{
+    "files.exclude": {
+        "**/.DS_Store": true,
+        "**/Library": true,
+        "**/Temp": true,
+        "**/obj": true,
+        "**/.vs": true,
+        "**/*.meta": true
+    },
+    "files.associations": {
+        "*.cs": "csharp"
+    },
+    "omnisharp.useModernNet": true,
+    "omnisharp.enableRoslynAnalyzers": true,
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp",
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    },
+    "dotrush.roslyn.projectOrSolutionFiles": [
+        "/Users/hanjoonpyo/GitHub/BattleManager2025/BattleManager2025.sln"
+    ],
+    "dotnet.defaultSolution": "BattleManager2025.slnx",
+    "git.ignoreLimitWarning": true
+}

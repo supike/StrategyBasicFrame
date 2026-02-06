@@ -93,8 +93,8 @@ public class DamageCalculator: MonoBehaviour
 
         // 5. 유닛 타입 상성 적용
         float typeAdvantage = CombatModifiers.GetTypeAdvantage(
-            attacker.unitData.unitType, 
-            defender.unitData.unitType
+            attacker.unitData.unitclass, 
+            defender.unitData.unitclass
         );
         reducedDamage = Mathf.RoundToInt(reducedDamage * typeAdvantage);
         
@@ -102,17 +102,17 @@ public class DamageCalculator: MonoBehaviour
         float terrainBonus = GetTerrainBonus(attacker.CurrentTile, defender.CurrentTile);
         reducedDamage = Mathf.RoundToInt(reducedDamage * terrainBonus);
         
-        // 7. 치명타 계산
-        if (Random.value < attacker.unitData.criticalChance)
-        {
-            reducedDamage = Mathf.RoundToInt(reducedDamage * attacker.unitData.criticalMultiplier);
-            CombatEventSystem.Instance.TriggerEvent(new CombatEvent
-            {
-                eventType = CombatEventType.CriticalHit,
-                attacker = attacker,
-                defender = defender
-            });
-        }
+        // 7. 치명타 계산        //치명타는 나중에 추가하자.
+        // if (Random.value < attacker.unitData.criticalChance)
+        // {
+        //     reducedDamage = Mathf.RoundToInt(reducedDamage * attacker.unitData.criticalMultiplier);
+        //     CombatEventSystem.Instance.TriggerEvent(new CombatEvent
+        //     {
+        //         eventType = CombatEventType.CriticalHit,
+        //         attacker = attacker,
+        //         defender = defender
+        //     });
+        // }
         
         // 8. 최소 데미지 보장
         return Mathf.Max(1, reducedDamage);

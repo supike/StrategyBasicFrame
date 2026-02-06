@@ -113,12 +113,12 @@ namespace BattleYouCan
             }
 
             // Fill in character details
-            m_CharNameLabel.text = selectedCharacter.CharacterName;
-            m_CharPowLabel.text = selectedCharacter.power.ToString();
+            m_CharNameLabel.text = selectedCharacter.characterName;
+            m_CharPowLabel.text = selectedCharacter.strength.ToString();
             m_CharIntLabel.text = selectedCharacter.intel.ToString();
             m_CharHealLabel.text = selectedCharacter.health.ToString();
             m_CharlukLabel.text = selectedCharacter.luck.ToString();
-            m_CharPortrait.style.backgroundImage = new StyleBackground(selectedCharacter.PortraitImage);
+            m_CharPortrait.style.backgroundImage = new StyleBackground(selectedCharacter.portraitImage);
         }
 
     }

@@ -22,6 +22,12 @@ namespace Core
         #region 유니티 기본 함수
         void Awake()
         {
+            // VSync 비활성화 (targetFrameRate가 우선되도록)
+            QualitySettings.vSyncCount = 0;
+            
+            // FPS를 60으로 제한
+            Application.targetFrameRate = 60;
+            
             if (Instance != null)
             {
                 Destroy(gameObject);
@@ -37,9 +43,29 @@ namespace Core
         void Start()
         {
             productionTimer = 0;
-            // 테스트용 코드
-            UnitManager.SetPlayerUnits(CombatManager.Instance.GetAllEnemyUnits());
-            
+            // 씬에 있는 Unit 컴포넌트를 찾아 플레이어 유닛 리스트로 설정
+            var allUnits = FindObjectsOfType<Unit>();
+            var playerUnits = new List<Unit>();
+            var enemyUnits = new List<Unit>();
+        
+            // 게임오브젝트에 `Player` 태그를 사용 중이라면 이를 기준으로 필터링
+            foreach (var u in allUnits)
+            {
+                // if (u.gameObject.CompareTag("Player"))
+                if (u.playerUnit)
+                {
+                    playerUnits.Add(u);
+                }
+                else
+                {
+                    enemyUnits.Add(u);
+                }
+            }
+        
+            UnitManager.SetPlayerUnits(playerUnits);
+            UnitManager.SetEnemyUnits(enemyUnits);
+            CombatManager.Instance.ProcessPlayerAttack();
+            // CombatManager.Instance.ProcessPlayerAttack();
         }
 
         // Update is called once per frame

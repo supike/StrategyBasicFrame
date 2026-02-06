@@ -1,0 +1,98 @@
+
+using UnityEngine;
+
+using Unity.Sentis;
+
+public class UnitAIController : MonoBehaviour
+{
+    [SerializeField] Unity.InferenceEngine.ModelAsset modelAsset;
+
+    private Unity.InferenceEngine.Model model;
+    private IWorker worker;
+
+    // 행동 정의 (Python의 ACTIONS와 동일한 순서)
+    public enum UnitAction
+    {
+        ATTACK = 0,
+        RETREAT = 1,
+        WAIT = 2,
+        DEFEND = 3,
+        MOVE_FORWARD = 4
+    }
+
+    void Awake()
+    {
+        model = Unity.InferenceEngine.ModelLoader.Load(modelAsset);
+        worker = WorkerFactory.CreateWorker(Unity.InferenceEngine.BackendType.GPUCompute, model);
+    }
+
+    public UnitAction DecideAction(UnitState state)
+    {
+        // 1. 상태 벡터 생성 (Python의 create_state_vector와 동일)
+        float[] stateVector = new float[11]
+        {
+            state.hpRatio,                          // HP 비율
+            state.attack / 100f,                     // 공격력 (정규화)
+            state.defense / 100f,                    // 방어력 (정규화)
+            state.distanceToNearestEnemy / 100f,    // 가장 가까운 적까지의 거리
+            state.nearbyAllies / 10f,               // 주변 아군 수
+            state.nearbyEnemies / 10f,              // 주변 적군 수
+            state.alliesAvgHp,                      // 아군 평균 HP
+            state.enemiesAvgHp,                     // 적군 평균 HP
+            state.positionX / 100f,                 // 현재 x 위치
+            state.positionY / 100f,                 // 현재 y 위치
+            state.distanceToObjective / 100f        // 목표까지의 거리
+        };
+
+        // 2. 입력 텐서 생성
+        TensorFloat input = new TensorFloat(
+            new Unity.InferenceEngine.TensorShape(1, 11),
+            stateVector
+        );
+
+        // 3. 모델 실행
+        worker.Execute(input);
+        TensorFloat output = worker.PeekOutput() as TensorFloat;
+
+        // 4. 최고 점수의 행동 선택
+        int bestAction = 0;
+        float bestScore = float.MinValue;
+
+        for (int i = 0; i < 5; i++)  // 5가지 행동
+        {
+            float score = output[i];
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestAction = i;
+            }
+        }
+
+        // 텐서 정리
+        input.Dispose();
+        output.Dispose();
+
+        return (UnitAction)bestAction;
+    }
+
+    void OnDestroy()
+    {
+        worker?.Dispose();
+    }
+}
+
+// 유닛 상태 구조체
+public struct UnitState
+{
+    public float hpRatio;
+    public float attack;
+    public float defense;
+    public float distanceToNearestEnemy;
+    public int nearbyAllies;
+    public int nearbyEnemies;
+    public float alliesAvgHp;
+    public float enemiesAvgHp;
+    public float positionX;
+    public float positionY;
+    public float distanceToObjective;
+}

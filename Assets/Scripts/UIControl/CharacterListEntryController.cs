@@ -19,7 +19,7 @@ namespace BattleYouCan
         // have a `Set` function to change which character's data to display.
         public void SetCharacterData(CharacterData characterData)
         {
-            m_NameLabel.text = characterData.CharacterName;
+            m_NameLabel.text = characterData.characterName;
         }
     }
 }

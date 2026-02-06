@@ -7,8 +7,8 @@ public class TileCustomWithEvent : TileCustom
     // 기본 정보
     public int TileType; // 0: 평지, 1: 산, 2: 물 등등
     
-    public int X { get; private set; }
-    public int Y { get; private set; }
+    public int X { get; set; }
+    public int Y { get; set; }
     public Vector2Int GridPosition => new Vector2Int(X, Y);
     public bool IsWalkable { get; private set; }
     public Unit OccupyingUnit { get; set; }

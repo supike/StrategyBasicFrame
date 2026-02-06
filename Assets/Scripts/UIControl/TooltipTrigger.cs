@@ -9,7 +9,7 @@ namespace BattleYouCan
     {
         [TextArea]
         public string tooltipText;
-        private float showDuration = 3f; 
+        private float showDuration = .1f; 
         
         private Coroutine autoHideCoroutine;
 

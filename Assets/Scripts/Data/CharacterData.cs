@@ -3,31 +3,58 @@ using UnityEngine;
 
 public enum EClass
 {
-    Knight, Ranger, Wizard
+    Infantry,  // 보병
+    Ranged,    // 원거리
+    Mounted,   // 기마
+    Special    // 특수
+}
+
+public enum EmotionCondition
+{
+    desperatated,
+    bad,
+    normal,
+    good,
+    happy,
+}
+
+public enum HealthCondition
+{
+    woond,
+    normal,
+    good,
 }
 
 [CreateAssetMenu(fileName = "CharacterData", menuName = "Scriptable Objects/CharacterData")]
 public class CharacterData : ScriptableObject
 {
-    public bool enable;
-    public string CharacterName;
-    public EClass Class;
-    public Sprite PortraitImage;
-    public int power;
-    public int intel;
-    public int health;
-    public int luck;
-    public int curHealth;
-
-    public CharacterData()
-    {
-        curHealth = health;
-    }
+    [Header("Character Info")]
+    public string characterName;
+    public EClass unitclass;
+    public Sprite portraitImage;
+    public Sprite iconImage;
+    public int ages;
+    public int reputation;
+    public HealthCondition HealthCondition = HealthCondition.normal;
+    public EmotionCondition EmotionCondition = EmotionCondition.normal;
     
-    public void setCurHealthReset(int _health)
-    {
-        curHealth += _health;
-    }
+    [Header("Description")]
+    [TextArea(3, 10)]
+    public string description;
+    
+    [Header("Default Stats")]
+    public int stamina=10;
+    public int speed=10;
+    public int balance=10;
+    public int strength=10;
+    
+    public int agression=10;
+    public int bravery=10;
+    public int sight=10;
+    
+    public int intel=10;
+    public int health=10;
+    public int luck=10;
 
 }
 
