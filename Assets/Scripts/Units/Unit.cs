@@ -53,6 +53,8 @@ public class UnitStats
     public int level = 1;           // 레벨
 
 }
+
+// todo : Unit 클래스 리팩토링 필요
 public class Unit : MonoBehaviour
 {
     #region 기본 데이터

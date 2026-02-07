@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 99510d211e48a48bf833db3a73ee3536, type: 3}
-  m_Name: phj
+  m_Name: phj 9
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: phj
   unitclass: 0
-  portraitImage: {fileID: -3860285358557565881, guid: abb42bb697e9a42a48642b28a301b021, type: 3}
+  portraitImage: {fileID: -3103430460124829183, guid: e643bef4c5bcf4e73a73fdd21a6f4601, type: 3}
   iconImage: {fileID: -703897247109072270, guid: a03a11cd60dd049169b34f11c6eb0337, type: 3}
   ages: 18
   reputation: 101

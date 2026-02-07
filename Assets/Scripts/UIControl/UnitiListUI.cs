@@ -15,7 +15,7 @@ namespace BattleYouCan
         public void Bind(CharacterData data)
         {
             unitData = data;
-            icon.sprite = data.iconImage;
+            icon.sprite = data.portraitImage;
             nameText.text = data.characterName;
             // classText.text = data.unitClass.ToString();
         }

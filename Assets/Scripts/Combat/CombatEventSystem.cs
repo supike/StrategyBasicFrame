@@ -74,11 +74,12 @@ namespace Combat
             Debug.Log($"[{combatEvent.eventType}] {combatEvent.message}");
         }
     
-        // public List<CombatEvent> GetRecentEvents(int count)
-        // {
-        //     return combatLog.TakeLast(count).ToList();
-        //     
-        // }
+        public List<CombatEvent> GetRecentEvents(int count)
+        {
+            var events = new List<CombatEvent>(combatLog);
+            int start = Mathf.Max(0, events.Count - count);
+            return events.GetRange(start, events.Count - start);
+        }
     
         public void ClearLog()
         {

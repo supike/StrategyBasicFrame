@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 
@@ -37,25 +38,70 @@ public class CharacterData : ScriptableObject
     public int reputation;
     public HealthCondition HealthCondition = HealthCondition.normal;
     public EmotionCondition EmotionCondition = EmotionCondition.normal;
-    
+
     [Header("Description")]
     [TextArea(3, 10)]
     public string description;
-    
+
     [Header("Default Stats")]
-    public int stamina=10;
-    public int speed=10;
-    public int balance=10;
-    public int strength=10;
-    
-    public int agression=10;
-    public int bravery=10;
-    public int sight=10;
-    
-    public int intel=10;
-    public int health=10;
-    public int luck=10;
+    public int stamina = 10;
+    public int speed = 10;
+    public int balance = 10;
+    public int strength = 10;
+
+    public int intel = 10;
+    public int health = 10;
+    public int luck = 10;
+
+    [Header("Core Traits (0~1)")]
+    public float aggression;      // 공격성
+    public float bravery;         // 공포 저항
+    public float discipline;      // 명령 순응
+    public float empathy;         // 아군 반응
+    public float impulsiveness;   // 충동성
+
+    [Header("Behavior Bias")]
+    public float retreatThreshold;  // 후퇴 판단 기준
+    public float allyDeathImpact;   // 아군 사망 영향도
+
+    [Header("Flavor")]
+    public string backgroundTag;
 
 }
+public class UnitStateRuntime
+{
+    public int currentHP;
 
-//To-do : CharacterData를 상속받아 현재 체력만 추가한 클래스. 추후에 상태이상 등도 추가할 예정
+    [Header("Emotions (0~100)")]
+    public float fear;
+    public float anger;
+    public float confidence;
+    public float stress;
+
+    [Header("Flags")]
+    public bool isPanicked;
+    public bool isTraumatized;
+}
+
+public enum MemoryTag
+{
+    WitnessedMassacre,
+    SuccessfulRetreat,
+    AbandonedByCommander,
+    SoloVictory
+}
+[CreateAssetMenu(menuName = "Unit/Memory")]
+public class UnitMemorySO : ScriptableObject
+{
+    [Header("Experience Counters")]
+    public int battlesSurvived;
+    public int retreats;
+    public int alliesDiedNearby;
+
+    [Header("Behavior Tags")]
+    public List<MemoryTag> memoryTags;
+
+    [Header("Long-term Modifiers")]
+    public float braveryModifier;
+    public float aggressionModifier;
+}
